@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>夫婦家計割合計算アプリ</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Segoe UI','Helvetica Neue',sans-serif; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; }
+.container { max-width:1000px; margin:0 auto; padding:0 12px 40px; }
+h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-shadow:0 2px 4px rgba(0,0,0,0.3); padding-top:20px; }
+.subtitle { text-align:center; color:rgba(255,255,255,0.85); margin-bottom:16px; font-size:0.95rem; }
+.tab-bar { position:sticky; top:0; z-index:100; display:flex; flex-wrap:wrap; background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-bottom:2px solid rgba(255,255,255,0.2); border-radius:12px 12px 0 0; margin-top:8px; }
+.tab-btn { flex:1; min-width:75px; padding:13px 4px; border:none; background:transparent; color:rgba(255,255,255,0.7); font-size:0.85rem; font-weight:700; cursor:pointer; transition:all .2s; border-radius:12px 12px 0 0; white-space:nowrap; }
+.tab-btn.active { color:white; border-bottom:3px solid white; background:rgba(255,255,255,0.15); }
+.tab-btn:hover:not(.active) { background:rgba(255,255,255,0.08); color:white; }
+.tab-content { display:none; padding:20px 8px 0; }
+.tab-content.active { display:block; }
+.card { background:white; border-radius:16px; padding:24px; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15); }
+.card h2 { font-size:1.1rem; color:#4a4a8a; margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid #e8e8f8; }
+.income-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+.input-group { display:flex; flex-direction:column; gap:6px; }
+.input-group label { font-size:0.88rem; color:#666; font-weight:600; }
+.input-suffix { position:relative; }
+.input-suffix input { padding:10px 36px 10px 14px; width:100%; border:2px solid #e0e0f0; border-radius:8px; font-size:1rem; outline:none; }
+.input-suffix input:focus { border-color:#667eea; }
+.input-suffix span { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#999; font-size:0.9rem; }
+.ratio-bar { display:flex; height:8px; border-radius:4px; overflow:hidden; margin:14px 0 6px; background:#f0f0f0; }
+.ratio-bar .husband { background:linear-gradient(90deg,#667eea,#764ba2); transition:width .5s; }
+.ratio-bar .wife { background:linear-gradient(90deg,#f093fb,#f5576c); transition:width .5s; }
+.ratio-labels { display:flex; justify-content:space-between; font-size:0.82rem; }
+.ratio-labels span:first-child { color:#667eea; font-weight:700; }
+.ratio-labels span:last-child  { color:#f5576c; font-weight:700; }
+.btn-row { display:flex; gap:10px; flex-wrap:wrap; }
+.btn-primary   { flex:1; min-width:160px; padding:12px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:0.92rem; }
+.btn-secondary { flex:1; min-width:160px; padding:12px; background:white; color:#667eea; border:2px solid #667eea; border-radius:10px; font-weight:700; cursor:pointer; font-size:0.92rem; }
+.btn-secondary:hover { background:#f0f0ff; }
+.btn-pdf { flex:1; min-width:160px; padding:12px; background:linear-gradient(135deg,#e53935,#e35d5b); color:white; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:0.92rem; }
+.btn-back { display:block; width:100%; padding:14px; background:rgba(255,255,255,0.15); color:white; border:2px solid rgba(255,255,255,0.5); border-radius:10px; font-weight:700; cursor:pointer; font-size:1rem; margin-bottom:16px; }
+.btn-danger-outline { padding:10px 16px; background:#fff0f0; color:#c62828; border:2px solid #ef9a9a; border-radius:10px; cursor:pointer; font-size:0.9rem; font-weight:700; width:100%; margin-top:12px; }
+.btn-add { display:block; width:100%; padding:12px; border:2px dashed #667eea88; background:#667eea11; color:#667eea; font-weight:700; border-radius:10px; cursor:pointer; margin-top:6px; }
+.btn-calc { display:block; width:100%; padding:14px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:10px; font-size:1.05rem; font-weight:700; cursor:pointer; margin-top:16px; box-shadow:0 4px 15px rgba(102,126,234,.4); }
+.btn-add-sub { display:block; width:100%; padding:12px; border:2px dashed #8e2de288; background:#8e2de211; color:#5e35b1; font-weight:700; border-radius:10px; cursor:pointer; margin-top:6px; }
+.btn-add-ins { display:block; width:100%; padding:12px; border:2px dashed #00897b88; background:#00897b11; color:#00695c; font-weight:700; border-radius:10px; cursor:pointer; margin-top:6px; }
+.save-status { font-size:0.78rem; color:#9a9a9a; text-align:right; margin-top:6px; }
+.sync-status { font-size:0.8rem; margin-top:8px; padding:6px 12px; border-radius:8px; display:inline-block; }
+.sync-ok   { background:#e8f5e9; color:#2e7d32; }
+.sync-err  { background:#ffebee; color:#c62828; }
+.sync-wait { background:#fff8e1; color:#f57f17; }
+.carryover-notice { background:linear-gradient(135deg,#e8f5e9,#f1f8e9); border:1px solid #a5d6a7; border-radius:10px; padding:10px 14px; font-size:0.82rem; color:#2e7d32; margin-bottom:16px; }
+.row-controls { display:flex; gap:4px; align-items:center; flex-shrink:0; }
+.btn-move-row { background:#f0f0f8; border:1px solid #d0d0e0; border-radius:6px; width:30px; height:30px; font-size:0.85rem; cursor:pointer; color:#555; }
+.btn-move-row:hover { background:#e0e0f0; }
+.btn-move-row:disabled { opacity:0.3; cursor:default; }
+.expense-row, .sub-row, .ins-row { background:#f8f8ff; border:1px solid #e5e5f5; border-radius:12px; padding:14px; margin-bottom:12px; }
+.sub-row { background:#f3f0ff; border-color:#d9cfff; }
+.ins-row { background:#e0f2f1; border-color:#b2dfdb; }
+.expense-row-header, .sub-row-header, .ins-row-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.exp-name, .sub-name, .ins-name { flex:1; min-width:120px; font-weight:700; font-size:0.95rem; border:none; background:transparent; border-bottom:2px dashed transparent; padding:4px 2px; color:#444; }
+.exp-name:focus, .sub-name:focus, .ins-name:focus { outline:none; border-bottom-color:#667eea; }
+.btn-del { background:#ffe5ea; color:#d23a5a; border:1px solid #ffc1cf; border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:0.9rem; flex-shrink:0; }
+.expense-row-body, .sub-row-body, .ins-row-body { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.exp-amount-wrap, .sub-amount-wrap, .ins-amount-wrap { position:relative; flex:1; min-width:140px; }
+.exp-amount-wrap input, .sub-amount-wrap input, .ins-amount-wrap input { width:100%; padding:8px 32px 8px 10px; border:2px solid #e0e0f0; border-radius:8px; font-size:0.92rem; outline:none; }
+.sub-amount-wrap input { border-color:#d9cfff; }
+.ins-amount-wrap input { border-color:#b2dfdb; }
+.exp-amount-wrap span, .sub-amount-wrap span, .ins-amount-wrap span { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#999; font-size:0.82rem; }
+.exp-cycle,.exp-mode,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel { padding:8px 10px; border:2px solid #e0e0f0; border-radius:8px; font-size:0.83rem; min-width:160px; outline:none; background:white; }
+.exp-cycle { color:#0056b3; font-weight:600; }
+.sub-payer { border-color:#d9cfff; color:#5e35b1; font-weight:600; }
+.ins-payer-sel, .ins-type-sel, .ins-company-sel { border-color:#b2dfdb; }
+.ins-payer-sel { color:#00695c; font-weight:600; }
+.fixed-ratio { display:flex; align-items:center; gap:6px; font-size:0.85rem; color:#555; background:#fff; border:1px dashed #c4c4ff; border-radius:8px; padding:6px 10px; }
+.fixed-ratio input { width:56px; padding:4px 6px; border:1.5px solid #e0e0f0; border-radius:6px; text-align:center; outline:none; }
+#resultArea { display:flex; flex-direction:column; }
+.chart-container { position:relative; height:260px; width:100%; display:flex; justify-content:center; margin-bottom:20px; }
+.chart-bar-container { position:relative; height:320px; width:100%; margin-bottom:20px; }
+.result-table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+.result-table th { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:9px 10px; text-align:center; white-space:nowrap; }
+.result-table th:first-child { text-align:left; border-radius:8px 0 0 0; }
+.result-table th:last-child  { border-radius:0 8px 0 0; }
+.result-table td { padding:9px 10px; border-bottom:1px solid #f0f0f8; text-align:center; vertical-align:middle; }
+.result-table td:first-child { text-align:left; font-weight:600; color:#444; }
+.result-table tr:nth-child(even) td { background:#f8f8ff; }
+.result-table .total-row td { background:linear-gradient(135deg,#f0f0ff,#ffe0f0) !important; font-weight:700; font-size:1rem; color:#333; }
+.acct-table th { background:linear-gradient(135deg,#f57f17,#e65100) !important; }
+.husband-amount { color:#5a6fd6; font-weight:700; }
+.wife-amount    { color:#e0457a; font-weight:700; }
+.badge { display:inline-block; font-size:0.65rem; border-radius:4px; padding:1px 6px; margin-left:5px; vertical-align:middle; color:white; white-space:nowrap; }
+.badge-yearly  { background:linear-gradient(135deg,#00c6ff,#0072ff); }
+.badge-lump    { background:linear-gradient(135deg,#ff9800,#f44336); }
+.badge-fixed   { background:linear-gradient(135deg,#f093fb,#f5576c); }
+.badge-half    { background:linear-gradient(135deg,#ff9800,#ff5722); }
+.badge-auto    { background:linear-gradient(135deg,#8e2de2,#5e35b1); }
+.badge-husband { background:linear-gradient(135deg,#667eea,#764ba2); }
+.badge-wife    { background:linear-gradient(135deg,#f093fb,#f5576c); }
+.badge-cat     { background:#607d8b; }
+.badge-preset  { background:linear-gradient(135deg,#00b4db,#0083b0); }
+.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
+.summary-box { border-radius:12px; padding:16px; text-align:center; }
+.summary-box.husband { background:linear-gradient(135deg,#667eea22,#764ba222); border:2px solid #667eea44; }
+.summary-box.wife    { background:linear-gradient(135deg,#f093fb22,#f5576c22); border:2px solid #f5576c44; }
+.summary-box .name   { font-size:0.9rem; color:#666; margin-bottom:4px; }
+.summary-box .amount { font-size:1.5rem; font-weight:800; }
+.summary-box.husband .amount { color:#5a6fd6; }
+.summary-box.wife    .amount { color:#e0457a; }
+.summary-box .breakdown { font-size:0.75rem; color:#999; margin-top:6px; line-height:1.6; }
+.summary-box .remaining { font-size:0.82rem; color:#888; margin-top:4px; }
+.settlement-section { background:linear-gradient(135deg,#fff8e1,#ffecb3); border:2px solid #ffd54f; border-radius:14px; padding:18px; margin-top:16px; }
+.settlement-section h3 { font-size:1rem; color:#f57f17; margin-bottom:6px; }
+.settlement-section .settle-note { font-size:0.82rem; color:#666; margin-bottom:12px; }
+.settle-block { background:white; border-radius:10px; padding:14px; margin-bottom:10px; border-left:4px solid #ffa000; }
+.settle-block:last-child { margin-bottom:0; }
+.settle-block-title { font-size:0.82rem; color:#888; font-weight:700; margin-bottom:8px; }
+.settle-action { font-size:1.05rem; font-weight:800; color:#e65100; line-height:1.8; }
+.settle-action .arrow { color:#f57f17; }
+.settle-detail { margin-top:8px; font-size:0.78rem; color:#888; line-height:1.7; background:#fffde7; border-radius:6px; padding:6px 10px; }
+.settle-detail table { width:100%; border-collapse:collapse; }
+.settle-detail td { padding:2px 6px; }
+.settle-detail td:last-child { text-align:right; font-weight:700; }
+.result-section-card { background:white; border-radius:16px; padding:24px; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15); }
+.acct-result-card { border-top:4px solid #f57f17; }
+.acct-result-card h2 { color:#e65100; }
+.acct-list { display:flex; flex-direction:column; gap:16px; }
+.acct-item { background:#fffdf5; border:1px solid #ffe082; border-radius:12px; padding:16px; }
+.acct-item-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+.acct-name { font-weight:800; color:#e65100; font-size:1rem; }
+.acct-total-badge { background:linear-gradient(135deg,#f57f17,#e65100); color:white; border-radius:20px; padding:4px 14px; font-size:0.85rem; font-weight:700; }
+.acct-breakdown { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.acct-breakdown-item { background:white; border-radius:8px; padding:8px 12px; font-size:0.82rem; }
+.acct-breakdown-item .ab-label { color:#888; margin-bottom:2px; }
+.acct-breakdown-item .ab-value { font-weight:700; color:#333; }
+.item-check-label { display:inline-flex; align-items:center; gap:4px; cursor:pointer; font-size:0.78rem; color:#666; background:#fff; border:1px solid #ddd; padding:3px 7px; border-radius:5px; white-space:nowrap; }
+.item-check-label input { cursor:pointer; width:14px; height:14px; }
+.item-check-label.checked { background:#e8f5e9; border-color:#a5d6a7; color:#2e7d32; font-weight:700; }
+.history-list { display:flex; flex-direction:column; gap:12px; }
+.history-item { background:white; border:1px solid #e5e5f5; border-radius:12px; padding:14px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.history-item-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.history-item-top input[type="checkbox"] { width:18px; height:18px; flex-shrink:0; }
+.history-item-title { font-weight:700; color:#444; font-size:0.95rem; flex:1; }
+.history-item-meta  { font-size:0.78rem; color:#888; margin-bottom:8px; }
+.history-item-btns  { display:flex; gap:6px; flex-wrap:wrap; }
+.btn-warning { padding:6px 12px; background:#fff3e0; color:#e65100; border:1px solid #ffcc80; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:700; }
+.btn-compare { padding:6px 12px; background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:700; }
+.history-empty { text-align:center; color:#bbb; padding:40px 20px; font-size:0.9rem; }
+.history-summary { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:#f8f8ff; border-radius:8px; padding:10px; font-size:0.8rem; }
+.hs-item { text-align:center; }
+.hs-label { color:#888; margin-bottom:2px; }
+.hs-value { font-weight:700; color:#444; }
+.history-save-row { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+.history-save-row input { flex:1; min-width:200px; padding:12px; border:2px solid #e0e0f0; border-radius:10px; font-size:0.95rem; outline:none; }
+.history-save-row button { flex:1; min-width:160px; }
+.compare-card { background:white; border-radius:16px; padding:24px; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:2px solid #a5d6a7; }
+.compare-card h2 { font-size:1.1rem; color:#2e7d32; margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid #c8e6c9; }
+.compare-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.compare-box { border-radius:12px; padding:14px; text-align:center; }
+.compare-box.current { background:#e8eaf6; border:2px solid #9fa8da; }
+.compare-box.past    { background:#fce4ec; border:2px solid #f48fb1; }
+.compare-box.diff    { background:#f1f8e9; border:2px solid #aed581; }
+.compare-box .c-label  { font-size:0.78rem; color:#888; margin-bottom:6px; }
+.compare-box .c-value  { font-size:1.1rem; font-weight:800; color:#333; }
+.diff-up   { color:#c62828 !important; }
+.diff-down { color:#2e7d32 !important; }
+.diff-zero { color:#888 !important; }
+.master-add-row { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.master-add-row input { flex:1; padding:8px 12px; border:2px solid #e0e0f0; border-radius:8px; font-size:0.9rem; outline:none; }
+.master-add-row button { padding:8px 16px; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.master-list { display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto; }
+.master-item { display:flex; align-items:center; gap:8px; background:#f8f8ff; border:1px solid #e5e5f5; border-radius:8px; padding:6px 10px; flex-wrap:wrap; }
+.master-item input.master-name-input { flex:1; font-size:0.9rem; color:#444; border:none; background:transparent; border-bottom:1px dashed #ccc; outline:none; padding:4px 2px; min-width:0; }
+.master-item select.master-role-sel { padding:4px 6px; border:1px solid #e0e0f0; border-radius:6px; font-size:0.82rem; background:white; color:#444; flex-shrink:0; }
+.btn-master-del { background:#ffe5ea; color:#d23a5a; border:1px solid #ffc1cf; border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:0.85rem; flex-shrink:0; }
+.master-empty { font-size:0.85rem; color:#bbb; text-align:center; padding:12px; }
+.role-badge { display:inline-block; font-size:0.7rem; border-radius:4px; padding:1px 7px; color:white; margin-left:4px; }
+.role-husband { background:#667eea; }
+.role-wife    { background:#f5576c; }
+.role-joint   { background:#43a047; }
+.role-other   { background:#9e9e9e; }
+.order-list { display:flex; flex-direction:column; gap:8px; }
+.order-item { display:flex; align-items:center; justify-content:space-between; background:#f8f8ff; border:1px solid #e5e5f5; border-radius:10px; padding:10px 14px; flex-wrap:wrap; gap:6px; }
+.order-name { font-weight:700; color:#444; font-size:0.92rem; }
+.order-move { display:flex; gap:6px; }
+.btn-move { padding:6px 12px; border:1px solid #e0e0f0; border-radius:6px; background:white; cursor:pointer; font-size:0.85rem; color:#667eea; font-weight:700; }
+.btn-move:disabled { color:#ccc; cursor:default; border-color:#eee; }
+.hidden { display:none !important; }
+.note { font-size:0.8rem; color:#aaa; text-align:center; margin-top:12px; }
+#toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:white; padding:10px 20px; border-radius:30px; font-size:0.9rem; opacity:0; transition:opacity .3s; pointer-events:none; z-index:3000; max-width:90%; text-align:center; }
+#toast.show { opacity:1; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:center; justify-content:center; }
+.modal { background:white; border-radius:16px; padding:28px; max-width:400px; width:90%; }
+.modal h3 { font-size:1.1rem; color:#333; margin-bottom:12px; }
+.modal p  { font-size:0.9rem; color:#666; margin-bottom:20px; }
+.modal-btns { display:flex; gap:10px; justify-content:flex-end; }
+.modal-btns button { padding:8px 20px; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.9rem; }
+.modal-cancel  { background:#f0f0f0; color:#666; border:none; }
+.modal-confirm { background:linear-gradient(135deg,#d23a5a,#f5576c); color:white; border:none; }
+.no-result-msg { text-align:center; color:rgba(255,255,255,0.85); padding:60px 20px; font-size:1rem; }
+.no-result-msg .icon { font-size:3rem; margin-bottom:12px; }
+@media print {
+  body { background:white !important; }
+  .tab-bar { display:none !important; }
+  #tab-input,#tab-history,#tab-settings { display:none !important; }
+  #tab-result { display:block !important; }
+  .card,.result-section-card,.compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
+  .btn-row,.btn-add,.btn-add-sub,.btn-add-ins,.btn-calc,.btn-danger-outline,.save-status,.btn-back,.row-controls,.item-check-label { display:none !important; }
+}
+@media (max-width:640px) {
+  .income-grid,.summary-grid,.compare-grid,.acct-breakdown,.history-summary { grid-template-columns:1fr; }
+  .exp-cycle,.exp-mode,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel { min-width:100%; }
+  h1 { font-size:1.4rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💰 夫婦家計割合計算アプリ</h1>
+  <p class="subtitle">並び替え・振込チェック・マスタ管理 対応の完全版</p>
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" id="tabBtn-input"    onclick="switchTab('input')">📋 入力</button>
+    <button class="tab-btn"        id="tabBtn-result"   onclick="switchTab('result')">📊 結果</button>
+    <button class="tab-btn"        id="tabBtn-history"  onclick="switchTab('history')">📅 履歴</button>
+    <button class="tab-btn"        id="tabBtn-settings" onclick="switchTab('settings')">⚙️ 設定</button>
+  </div>
+  <div class="tab-content active" id="tab-input">
+    <div class="carryover-notice">✅ 前回の入力内容が引き継がれています。変更のある項目だけ書き直してください。カード自体の順番は「⚙️設定」タブから並び替えられます。</div>
+    <div id="inputAreaWrapper" style="display:flex; flex-direction:column;">
+      <div class="card" id="card-income">
+        <h2>👫 夫婦の月収入力（ベースとなる収入比）</h2>
+        <div class="income-grid">
+          <div class="input-group"><label>夫の月収（手取り）</label><div class="input-suffix"><input type="number" id="husbandIncome" placeholder="例: 350000" min="0"/><span>円</span></div></div>
+          <div class="input-group"><label>妻の月収（手取り）</label><div class="input-suffix"><input type="number" id="wifeIncome" placeholder="例: 250000" min="0"/><span>円</span></div></div>
+        </div>
+        <div class="ratio-bar"><div class="husband" id="husbandBar" style="width:50%"></div><div class="wife" id="wifeBar" style="width:50%"></div></div>
+        <div class="ratio-labels"><span id="husbandRatioLabel">夫 --%</span><span id="wifeRatioLabel">妻 --%</span></div>
+      </div>
+      <div class="card" id="card-sync">
+        <h2>🔗 同期状態・共有</h2>
+        <div class="btn-row"><button class="btn-secondary" onclick="shareLink()">📋 このページのURLをコピーする</button></div>
+        <div id="syncStatus" class="sync-status sync-wait">⏳ Firebase接続中...</div>
+      </div>
+      <div class="card" id="card-sub">
+        <h2>📱 サブスクリプション管理</h2>
+        <div id="subList"></div>
+        <button class="btn-add-sub" onclick="addNewSubRow()">＋ サブスクを追加する</button>
+      </div>
+      <div class="card" id="card-ins">
+        <h2>🛡️ 保険管理</h2>
+        <div id="insList"></div>
+        <button class="btn-add-ins" onclick="addNewInsRow()">＋ 保険を追加する</button>
+      </div>
+      <div class="card" id="card-exp">
+        <h2>📋 費用項目</h2>
+        <div id="expenseList"></div>
+        <button class="btn-add" onclick="addNewExpenseRow()">＋ 項目を追加する</button>
+        <button class="btn-calc" onclick="calculate(true)">⚡ 負担割合・口座集計を計算する</button>
+        <div class="save-status" id="saveStatus"></div>
+      </div>
+    </div>
+  </div>
+  <div class="tab-content" id="tab-result">
+    <div id="noResultMsg" class="no-result-msg"><div class="icon">📊</div><div>まだ計算されていません。<br>「📋 入力」タブで「⚡ 計算する」を押してください。</div></div>
+    <div id="resultAreaWrapper" class="hidden">
+      <button class="btn-back" onclick="switchTab('input')">✏️ 入力に戻る</button>
+      <div id="resultArea">
+        <div class="card" id="res-charts">
+          <div class="btn-row" style="margin-bottom:16px;"><button class="btn-pdf" onclick="printPDF()">🖨️ PDFとして保存・印刷する</button></div>
+          <h3 style="font-size:0.95rem;color:#555;margin-bottom:8px;">夫婦の月間負担比率</h3>
+          <div class="chart-container"><canvas id="pieChart"></canvas></div>
+          <h3 style="font-size:0.95rem;color:#555;margin-bottom:8px;">項目別の月々の負担額（サブスク・保険込み）</h3>
+          <div class="chart-bar-container"><canvas id="barChart"></canvas></div>
+        </div>
+        <div class="card" id="res-summary">
+          <h2>👫 夫婦の最終月間負担</h2>
+          <div class="summary-grid">
+            <div class="summary-box husband"><div class="name">夫の最終負担</div><div class="amount husband-amount" id="summaryH"></div><div class="breakdown" id="breakdownH"></div><div class="remaining">手取り後の残額：<span id="remainH"></span></div></div>
+            <div class="summary-box wife"><div class="name">妻の最終負担</div><div class="amount wife-amount" id="summaryW"></div><div class="breakdown" id="breakdownW"></div><div class="remaining">手取り後の残額：<span id="remainW"></span></div></div>
+          </div>
+          <div id="settlementSection" class="settlement-section hidden">
+            <h3>🔄 最終的なお金の移動（相殺精算）</h3>
+            <p class="settle-note">各口座間の振込をすべて相殺した結果です。実際に動かすお金はこれだけです。</p>
+            <div id="settlementContent"></div>
+          </div>
+        </div>
+        <div class="card" id="res-monthly">
+          <h2>📅 月々の家計（サブスク・保険込み）</h2>
+          <p style="font-size:0.82rem;color:#666;margin-bottom:12px;">振込が完了したら項目ごとに夫・妻それぞれチェックしてください。月が変わると自動的にリセットされます。</p>
+          <div style="overflow-x:auto;">
+            <table class="result-table">
+              <thead><tr><th>費用項目</th><th>月額換算</th><th>振込先口座</th><th>夫の負担 / 振込済</th><th>妻の負担 / 振込済</th></tr></thead>
+              <tbody id="resultBody"></tbody>
+              <tfoot><tr class="total-row"><td>月々合計</td><td id="totalMonthly"></td><td>-</td><td id="totalHusband" class="husband-amount"></td><td id="totalWife" class="wife-amount"></td></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="result-section-card acct-result-card hidden" id="res-acct">
+          <h2>🏦 引き落とし口座別の必要入金額（参考）</h2>
+          <p style="font-size:0.82rem;color:#666;margin-bottom:12px;">各口座にいくら入っていればよいかの参考集計です。</p>
+          <div class="acct-list" id="acctList"></div>
+        </div>
+        <div class="card" id="res-bonus">
+          <div id="bonusSummerSection" class="hidden"><h3 style="font-size:0.95rem;color:#e65100;margin-bottom:8px;">🌻 夏のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>振込先口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusSummerBody"></tbody><tfoot><tr class="total-row"><td>夏合計</td><td id="bonusSummerTotal"></td><td>-</td><td id="bonusSummerH" class="husband-amount"></td><td id="bonusSummerW" class="wife-amount"></td></tr></tfoot></table></div></div>
+          <div id="bonusWinterSection" class="hidden"><h3 style="font-size:0.95rem;color:#1565c0;margin-bottom:8px;">⛄ 冬のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>振込先口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusWinterBody"></tbody><tfoot><tr class="total-row"><td>冬合計</td><td id="bonusWinterTotal"></td><td>-</td><td id="bonusWinterH" class="husband-amount"></td><td id="bonusWinterW" class="wife-amount"></td></tr></tfoot></table></div></div>
+          <div id="yearlyLumpSection" class="hidden"><h3 style="font-size:0.95rem;color:#e65100;margin-bottom:8px;">📆 年1回・一括払い</h3><div style="overflow-x:auto;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>振込先口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="yearlyLumpBody"></tbody><tfoot><tr class="total-row"><td>一括合計</td><td id="yearlyLumpTotal"></td><td>-</td><td id="yearlyLumpH" class="husband-amount"></td><td id="yearlyLumpW" class="wife-amount"></td></tr></tfoot></table></div></div>
+          <p class="note">※ ボーナス払い・一括払いは月々の家計とは別枠です。精算額は上記の「🔄 最終的なお金の移動」に表示されます。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tab-content" id="tab-history">
+    <div class="card">
+      <h2>📅 履歴管理</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">現在の入力内容を丸ごとスナップショットとして保存します。</p>
+      <div class="history-save-row">
+        <input type="text" id="historyTitle" placeholder="例：2026年7月分" />
+        <button class="btn-primary" onclick="saveHistory()">💾 履歴に保存する</button>
+      </div>
+      <div id="historyList"><div class="history-empty">まだ履歴がありません。</div></div>
+      <button class="btn-danger-outline" onclick="openBulkDeleteModal()">🗑 選択した履歴を削除する（<span id="selectedCount">0</span>件選択中）</button>
+    </div>
+    <div class="compare-card hidden" id="compareCard">
+      <h2>🔍 履歴との比較</h2>
+      <p id="compareTitle" style="font-size:0.85rem;color:#666;margin-bottom:16px;"></p>
+      <div id="compareContent"></div>
+      <button class="btn-secondary" onclick="document.getElementById('compareCard').classList.add('hidden')" style="margin-top:14px;width:100%;">✕ 比較を閉じる</button>
+    </div>
+  </div>
+  <div class="tab-content" id="tab-settings">
+    <div class="card">
+      <h2>📑 タブの並び替え</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">この端末だけの表示順です。</p>
+      <div class="order-list" id="tabOrderList"></div>
+    </div>
+    <div class="card">
+      <h2>📋 入力画面の並び替え</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">「📋 入力」タブ内の各カードの表示順を変更できます（この端末だけの設定です）。</p>
+      <div class="order-list" id="inputOrderList"></div>
+    </div>
+    <div class="card">
+      <h2>📊 結果画面の並び替え</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">「📊 結果」タブ内の各セクションの表示順を変更できます。</p>
+      <div class="order-list" id="resOrderList"></div>
+    </div>
+    <div class="card">
+      <h2>⚖️ 負担割合プリセットマスタ</h2>
+      <p style="font-size:0.82rem;color:#555;margin-bottom:10px;">ここで作成した割合ルールは、費用項目・サブスク・保険の負担方法プルダウンから選べるようになります。数はいくつでも自由に登録できます。<br>
+      <strong style="color:#c62828;">⚠ 住宅ローンの各行は、相殺精算を正しく機能させるため「収入比で自動計算」のままにしておくことを推奨します。</strong></p>
+      <div class="master-add-row">
+        <input type="text" id="newPresetName" placeholder="例: 子ども関連" style="flex:2; min-width:120px;">
+        <div style="display:flex; align-items:center; gap:4px; background:#f0f0f8; padding:4px 8px; border-radius:8px; border:1px solid #e0e0f0;">
+          <span style="font-size:0.85rem;">夫</span><input type="number" id="newPresetHPct" min="0" max="100" value="50" oninput="document.getElementById('newPresetWPct').textContent=100-this.value" style="width:50px; text-align:center;">
+          <span style="font-size:0.85rem;">%：妻 <span id="newPresetWPct">50</span>%</span>
+        </div>
+        <button onclick="addPresetItem()" style="flex:1;">＋ 追加</button>
+      </div>
+      <div class="master-list" id="masterPresetList"></div>
+    </div>
+    <div class="card">
+      <h2>🏦 口座名マスタ</h2>
+      <p style="font-size:0.82rem;color:#555;margin-bottom:10px;">各口座に「役割」を設定することで、相殺精算の計算に使用されます。<br>
+      <strong style="color:#c62828;">⚠ 口座名を変更した後は、費用項目・サブスク・保険の各行の口座選択欄も必ず選び直してください。</strong></p>
+      <div class="master-add-row">
+        <input type="text" id="newAccountName" placeholder="例: 広兼 auじぶん銀行" onkeydown="if(event.key==='Enter')addAccountItem()"/>
+        <select id="newAccountRole" style="padding:8px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.9rem;outline:none;">
+          <option value="other">— その他</option>
+          <option value="husband">👨 夫用</option>
+          <option value="wife">👩 妻用</option>
+          <option value="joint">👫 共同</option>
+        </select>
+        <button onclick="addAccountItem()">＋ 追加</button>
+      </div>
+      <div class="master-list" id="masterAccountList"></div>
+    </div>
+    <div class="card">
+      <h2>🛡️ 保険種別マスタ</h2>
+      <div class="master-add-row"><input type="text" id="newInsType" placeholder="例: 就業不能保険" onkeydown="if(event.key==='Enter')addMasterItem('insTypes','newInsType')"/><button onclick="addMasterItem('insTypes','newInsType')">＋ 追加</button></div>
+      <div class="master-list" id="masterInsTypeList"></div>
+    </div>
+    <div class="card">
+      <h2>🏢 保険会社マスタ</h2>
+      <div class="master-add-row"><input type="text" id="newInsCompany" placeholder="例: ××海上" onkeydown="if(event.key==='Enter')addMasterItem('insCompanies','newInsCompany')"/><button onclick="addMasterItem('insCompanies','newInsCompany')">＋ 追加</button></div>
+      <div class="master-list" id="masterInsCompanyList"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <h3>🗑️ 履歴を削除しますか？</h3>
+    <p id="modalMsg">この操作は元に戻せません。</p>
+    <div class="modal-btns"><button class="modal-cancel" onclick="closeModal()">キャンセル</button><button class="modal-confirm" onclick="confirmBulkDelete()">削除する</button></div>
+  </div>
+</div>
+<script>
+const FIREBASE_URL = 'https://kakei-wariai-default-rtdb.asia-southeast1.firebasedatabase.app';
+const CURRENT_PATH = 'kakeibo/current';
+const HISTORY_PATH = 'kakeibo/history';
+const MASTER_PATH  = 'kakeibo/master';
+const PAID_PATH    = 'kakeibo/paidStatus';
+
+let pieChart=null, barChart=null;
+let autoSaveTimer=null, lastCalcResult=null, lastAccts=[];
+let paidData = {};
+let masterData = {
+  accounts: [
+    {name:'共同口座',          role:'joint'},
+    {name:'広兼 auじぶん銀行', role:'husband'},
+    {name:'萌 auじぶん銀行',   role:'wife'},
+  ],
+  insTypes:     ['生命保険','医療保険','収入保障保険','がん保険'],
+  insCompanies: ['〇〇生命','△△生命','□□損保','◇◇保険'],
+  ratioPresets: []
+};
+
+function uid(){ return 'id_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function acctName(a){ return typeof a==='string' ? a : (a&&a.name)||''; }
+function acctRole(a){ return typeof a==='string' ? 'other' : (a&&a.role)||'other'; }
+function normalizeAccounts(raw){
+  if(!Array.isArray(raw)) return masterData.accounts;
+  return raw.map(a=> typeof a==='string' ? {name:a, role:'other'} : {name:a.name||'', role:a.role||'other'});
+}
+function getAccountByRole(role){ return masterData.accounts.find(a=>acctRole(a)===role)||null; }
+function getAccountNameByRole(role){ const a=getAccountByRole(role); return a?acctName(a):''; }
+
+const DEFAULT_ITEMS = [
+  {name:'🛒 生活費',amount:120000,cycle:'monthly',mode:'auto',hPct:50,account:'共同口座'},
+  {name:'⚡ 電気代',amount:12000,cycle:'monthly',mode:'auto',hPct:50,account:'共同口座'},
+  {name:'🔥 ガス代',amount:8000,cycle:'monthly',mode:'auto',hPct:50,account:'共同口座'},
+  {name:'💧 水道代',amount:5000,cycle:'monthly',mode:'auto',hPct:50,account:'共同口座'},
+  {name:'🏠 住宅ローン（広兼口座・固定引落）',amount:68667,cycle:'monthly',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🏠 住宅ローン（萌口座・固定引落）',amount:31333,cycle:'monthly',mode:'auto',hPct:50,account:'萌 auじぶん銀行'},
+  {name:'🏠 住宅ローン（夏ボーナス・広兼口座）',amount:103000,cycle:'bonus_summer',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🏠 住宅ローン（夏ボーナス・萌口座）',amount:47000,cycle:'bonus_summer',mode:'auto',hPct:50,account:'萌 auじぶん銀行'},
+  {name:'🏠 住宅ローン（冬ボーナス・広兼口座）',amount:103000,cycle:'bonus_winter',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🏠 住宅ローン（冬ボーナス・萌口座）',amount:47000,cycle:'bonus_winter',mode:'auto',hPct:50,account:'萌 auじぶん銀行'},
+  {name:'👶 子供の費用',amount:30000,cycle:'monthly',mode:'auto',hPct:50,account:'共同口座'},
+  {name:'🏫 保育料',amount:40000,cycle:'monthly',mode:'auto',hPct:50,account:'萌 auじぶん銀行'},
+  {name:'🚗 自動車ローン（月々）',amount:20000,cycle:'monthly',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🚗 自動車ローン（夏ボーナス）',amount:50000,cycle:'bonus_summer',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🚗 自動車ローン（冬ボーナス）',amount:50000,cycle:'bonus_winter',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🏡 固定資産税',amount:120000,cycle:'bonus_summer',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🚘 自動車税',amount:45000,cycle:'bonus_summer',mode:'auto',hPct:50,account:'広兼 auじぶん銀行'},
+  {name:'🧊 凍結胚更新料',amount:60000,cycle:'bonus_summer',mode:'auto',hPct:50,account:'萌 auじぶん銀行'},
+];
+const DEFAULT_SUBS = [
+  {name:'📺 Netflix',amount:1500,payer:'half',account:'共同口座'},
+  {name:'🛒 Amazonプライム',amount:600,payer:'auto',account:'共同口座'},
+  {name:'🎵 Apple Music',amount:1080,payer:'husband',account:'広兼 auじぶん銀行'},
+  {name:'☁️ iCloud',amount:400,payer:'wife',account:'萌 auじぶん銀行'},
+];
+const DEFAULT_INS = [
+  {name:'夫 定期保険',type:'生命保険',company:'〇〇生命',amount:8000,payer:'husband',account:'広兼 auじぶん銀行'},
+  {name:'妻 医療保険',type:'医療保険',company:'△△生命',amount:3000,payer:'wife',account:'萌 auじぶん銀行'},
+  {name:'夫 収入保障保険',type:'収入保障保険',company:'□□損保',amount:2500,payer:'husband',account:'広兼 auじぶん銀行'},
+  {name:'共同 がん保険',type:'がん保険',company:'◇◇保険',amount:5000,payer:'half',account:'共同口座'},
+];
+
+const TAB_DEFS = [{id:'input',label:'📋 入力'},{id:'result',label:'📊 結果'},{id:'history',label:'📅 履歴'},{id:'settings',label:'⚙️ 設定'}];
+let tabOrder = ['input','result','history','settings'];
+const INPUT_DEFS = [
+  {id:'card-income',label:'👫 月収入力（収入比）'},
+  {id:'card-sync',  label:'🔗 同期状態・共有'},
+  {id:'card-sub',   label:'📱 サブスクリプション'},
+  {id:'card-ins',   label:'🛡️ 保険管理'},
+  {id:'card-exp',   label:'📋 費用項目'},
+];
+let inputOrder = INPUT_DEFS.map(d=>d.id);
+const RES_DEFS = [
+  {id:'res-charts', label:'📊 グラフ'},
+  {id:'res-summary',label:'👫 夫婦の最終月間負担・精算'},
+  {id:'res-monthly',label:'📅 月々の家計'},
+  {id:'res-acct',   label:'🏦 口座別必要入金額（参考）'},
+  {id:'res-bonus',  label:'🌻⛄📆 ボーナス・年一括払い'},
+];
+let resOrder = RES_DEFS.map(d=>d.id);
+
+function loadOrders(){
+  try{const t=JSON.parse(localStorage.getItem('kakeiboTabOrderV2'));if(Array.isArray(t)&&t.length===TAB_DEFS.length)tabOrder=t;}catch(e){}
+  try{const i=JSON.parse(localStorage.getItem('kakeiboInputOrderV2'));if(Array.isArray(i)&&i.length===INPUT_DEFS.length)inputOrder=i;}catch(e){}
+  try{const r=JSON.parse(localStorage.getItem('kakeiboResOrderV2'));if(Array.isArray(r)&&r.length===RES_DEFS.length)resOrder=r;}catch(e){}
+}
+function applyOrders(){
+  tabOrder.forEach((id,idx)=>{const b=document.getElementById('tabBtn-'+id);if(b)b.style.order=idx;});
+  inputOrder.forEach((id,idx)=>{const el=document.getElementById(id);if(el)el.style.order=idx;});
+  resOrder.forEach((id,idx)=>{const el=document.getElementById(id);if(el)el.style.order=idx;});
+}
+function moveOrder(kind,idx,dir){
+  const arr=kind==='tab'?tabOrder:(kind==='input'?inputOrder:resOrder);
+  const ni=idx+dir;if(ni<0||ni>=arr.length)return;
+  [arr[idx],arr[ni]]=[arr[ni],arr[idx]];
+  const key=kind==='tab'?'kakeiboTabOrderV2':(kind==='input'?'kakeiboInputOrderV2':'kakeiboResOrderV2');
+  localStorage.setItem(key,JSON.stringify(arr));
+  applyOrders();renderOrderSettings();
+}
+function renderOrderSettings(){
+  ['tab','input','res'].forEach(kind=>{
+    const defs=kind==='tab'?TAB_DEFS:(kind==='input'?INPUT_DEFS:RES_DEFS);
+    const arr=kind==='tab'?tabOrder:(kind==='input'?inputOrder:resOrder);
+    const listEl=document.getElementById(kind==='tab'?'tabOrderList':(kind==='input'?'inputOrderList':'resOrderList'));
+    listEl.innerHTML='';
+    arr.forEach((id,idx)=>{
+      const d=defs.find(x=>x.id===id);
+      listEl.innerHTML+=`<div class="order-item"><span class="order-name">${idx+1}. ${d.label}</span><div class="order-move"><button class="btn-move" onclick="moveOrder('${kind}',${idx},-1)" ${idx===0?'disabled':''}>↑ 上へ</button><button class="btn-move" onclick="moveOrder('${kind}',${idx},1)" ${idx===arr.length-1?'disabled':''}>↓ 下へ</button></div></div>`;
+    });
+  });
+}
+function switchTab(tabId){
+  TAB_DEFS.forEach(d=>{
+    document.getElementById('tab-'+d.id).classList.toggle('active',d.id===tabId);
+    document.getElementById('tabBtn-'+d.id).classList.toggle('active',d.id===tabId);
+  });
+  if(tabId==='result'&&lastCalcResult){setTimeout(()=>{if(pieChart)pieChart.resize();if(barChart)barChart.resize();},50);}
+  if(tabId==='settings'){renderOrderSettings();renderMasterLists();}
+  if(tabId==='history'){
+    loadHistoryList();
+    const ti=document.getElementById('historyTitle');
+    if(!ti.value.trim()){const n=new Date();ti.value=`${n.getFullYear()}年${n.getMonth()+1}月分`;}
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function buildAccountOptions(current,placeholder){
+  let html=`<option value="">${placeholder||'🏦 口座を選択'}</option>`;let found=false;
+  masterData.accounts.forEach(a=>{
+    const n=acctName(a);
+    if(n===current)found=true;
+    html+=`<option value="${n}" ${n===current?'selected':''}>${n}</option>`;
+  });
+  if(current&&!found)html+=`<option value="${current}" selected>${current}（未登録）</option>`;
+  return html;
+}
+function buildOptions(list,current,placeholder){
+  let html=`<option value="">${placeholder}</option>`;let found=false;
+  list.forEach(item=>{if(item===current)found=true;html+=`<option value="${item}" ${item===current?'selected':''}>${item}</option>`;});
+  if(current&&!found)html+=`<option value="${current}" selected>${current}（未登録）</option>`;
+  return html;
+}
+function buildExpModeOptions(current){
+  let html=`<option value="auto" ${current==='auto'?'selected':''}>収入比で自動計算</option>`;
+  (masterData.ratioPresets||[]).forEach(p=>{
+    html+=`<option value="${p.id}" ${current===p.id?'selected':''}>${p.name}（夫${p.hPct}:妻${100-p.hPct}）</option>`;
+  });
+  html+=`<option value="fixed" ${current==='fixed'?'selected':''}>この行だけ個別に指定</option>`;
+  const validValues=['auto','fixed',...((masterData.ratioPresets||[]).map(p=>p.id))];
+  if(current && !validValues.includes(current)){
+    html+=`<option value="${current}" selected>⚠ 削除済みのプリセット（収入比として計算中）</option>`;
+  }
+  return html;
+}
+function buildPayerOptions(current){
+  let html=`
+    <option value="half" ${current==='half'?'selected':''}>👫 共同（50:50）</option>
+    <option value="auto" ${current==='auto'?'selected':''}>👫 共同（収入比）</option>`;
+  (masterData.ratioPresets||[]).forEach(p=>{
+    html+=`<option value="${p.id}" ${current===p.id?'selected':''}>👫 ${p.name}（夫${p.hPct}:妻${100-p.hPct}）</option>`;
+  });
+  html+=`
+    <option value="husband" ${current==='husband'?'selected':''}>👨 夫のみ</option>
+    <option value="wife" ${current==='wife'?'selected':''}>👩 妻のみ</option>`;
+  const validValues=['half','auto','husband','wife',...((masterData.ratioPresets||[]).map(p=>p.id))];
+  if(current && !validValues.includes(current)){
+    html+=`<option value="${current}" selected>⚠ 削除済みのプリセット（収入比として計算中）</option>`;
+  }
+  return html;
+}
+function refreshAllDropdowns(){
+  document.querySelectorAll('.account-sel,.sub-account-sel,.ins-account-sel').forEach(sel=>{const c=sel.value;sel.innerHTML=buildAccountOptions(c);});
+  document.querySelectorAll('.ins-type-sel').forEach(sel=>{const c=sel.value;sel.innerHTML=buildOptions(masterData.insTypes,c,'種別を選択');});
+  document.querySelectorAll('.ins-company-sel').forEach(sel=>{const c=sel.value;sel.innerHTML=buildOptions(masterData.insCompanies,c,'保険会社を選択');});
+  document.querySelectorAll('.exp-mode').forEach(sel=>{const c=sel.value;sel.innerHTML=buildExpModeOptions(c);});
+  document.querySelectorAll('.sub-payer, .ins-payer-sel').forEach(sel=>{const c=sel.value;sel.innerHTML=buildPayerOptions(c);});
+}
+
+const ROLE_LABELS={husband:'👨 夫用',wife:'👩 妻用',joint:'👫 共同',other:'— その他'};
+const ROLE_BADGE_CLS={husband:'role-husband',wife:'role-wife',joint:'role-joint',other:'role-other'};
+
+function renderMasterLists(){
+  const acctEl=document.getElementById('masterAccountList');
+  acctEl.innerHTML='';
+  if(!masterData.accounts.length){acctEl.innerHTML='<div class="master-empty">まだ登録されていません</div>';}
+  masterData.accounts.forEach((a,idx)=>{
+    const n=acctName(a),r=acctRole(a);
+    const div=document.createElement('div');div.className='master-item';
+    div.innerHTML=`
+      <input type="text" class="master-name-input" value="${n}" onchange="updateAccountItem(${idx},'name',this.value)">
+      <select class="master-role-sel" onchange="updateAccountItem(${idx},'role',this.value)">
+        <option value="other" ${r==='other'?'selected':''}>— その他</option>
+        <option value="husband" ${r==='husband'?'selected':''}>👨 夫用</option>
+        <option value="wife" ${r==='wife'?'selected':''}>👩 妻用</option>
+        <option value="joint" ${r==='joint'?'selected':''}>👫 共同</option>
+      </select>
+      <span class="role-badge ${ROLE_BADGE_CLS[r]}">${ROLE_LABELS[r]}</span>
+      <button class="btn-master-del" onclick="deleteAccountItem(${idx})">✕</button>`;
+    acctEl.appendChild(div);
+  });
+
+  const presetEl=document.getElementById('masterPresetList');
+  presetEl.innerHTML='';
+  if(!masterData.ratioPresets||!masterData.ratioPresets.length){presetEl.innerHTML='<div class="master-empty">まだ登録されていません</div>';}
+  (masterData.ratioPresets||[]).forEach((p,idx)=>{
+    const div=document.createElement('div');div.className='master-item';
+    div.innerHTML=`
+      <input type="text" class="master-name-input" value="${p.name}" onchange="updatePresetItem(${idx},'name',this.value)">
+      <div style="display:flex;align-items:center;gap:4px;background:white;padding:2px 6px;border-radius:6px;border:1px solid #e0e0f0;font-size:0.85rem;">
+        夫<input type="number" value="${p.hPct}" min="0" max="100" onchange="updatePresetItem(${idx},'hPct',this.value)" style="width:40px;text-align:center;border:none;border-bottom:1px solid #ccc;outline:none;">%：妻${100-p.hPct}%
+      </div>
+      <button class="btn-master-del" onclick="deletePresetItem(${idx})">✕</button>`;
+    presetEl.appendChild(div);
+  });
+
+  renderOneMasterList('insTypes','masterInsTypeList');
+  renderOneMasterList('insCompanies','masterInsCompanyList');
+}
+function renderOneMasterList(key,elId){
+  const el=document.getElementById(elId);
+  if(!masterData[key]||!masterData[key].length){el.innerHTML='<div class="master-empty">まだ登録されていません</div>';return;}
+  el.innerHTML='';
+  masterData[key].forEach((name,idx)=>{
+    const div=document.createElement('div');div.className='master-item';
+    div.innerHTML=`<input type="text" class="master-name-input" value="${name}" onchange="updateMasterItem('${key}',${idx},this.value)"><button class="btn-master-del" onclick="deleteMasterItem('${key}',${idx})">✕</button>`;
+    el.appendChild(div);
+  });
+}
+function addAccountItem(){
+  const nameInput=document.getElementById('newAccountName'), roleSel=document.getElementById('newAccountRole');
+  const name=nameInput.value.trim(),role=roleSel.value;
+  if(!name){showToast('口座名を入力してください');return;}
+  if(masterData.accounts.some(a=>acctName(a)===name)){showToast('すでに登録されています');return;}
+  masterData.accounts.push({name,role});
+  nameInput.value='';roleSel.value='other';
+  renderMasterLists();refreshAllDropdowns();saveMaster();showToast('✅ 追加しました：'+name);
+}
+function updateAccountItem(idx,field,val){
+  if(field==='name'){const v=val.trim();if(!v)return;masterData.accounts[idx].name=v;}
+  else{masterData.accounts[idx].role=val;}
+  renderMasterLists();refreshAllDropdowns();saveMaster();
+}
+function deleteAccountItem(idx){
+  const r=acctName(masterData.accounts[idx]);masterData.accounts.splice(idx,1);
+  renderMasterLists();refreshAllDropdowns();saveMaster();showToast('🗑 削除しました：'+r);
+}
+
+function addPresetItem(){
+  const nameInput=document.getElementById('newPresetName');
+  const hPctInput=document.getElementById('newPresetHPct');
+  const name=nameInput.value.trim();
+  const hPct=Math.min(100,Math.max(0,parseFloat(hPctInput.value)||0));
+  if(!name){showToast('プリセット名を入力してください');return;}
+  if(!masterData.ratioPresets) masterData.ratioPresets=[];
+  masterData.ratioPresets.push({id:uid(), name, hPct});
+  nameInput.value=''; hPctInput.value=50; document.getElementById('newPresetWPct').textContent=50;
+  renderMasterLists();refreshAllDropdowns();saveMaster();showToast('✅ プリセットを追加しました');
+}
+function updatePresetItem(idx,field,val){
+  if(field==='name'){const v=val.trim();if(!v)return;masterData.ratioPresets[idx].name=v;}
+  else{masterData.ratioPresets[idx].hPct=Math.min(100,Math.max(0,parseFloat(val)||0));}
+  renderMasterLists();refreshAllDropdowns();saveMaster();
+}
+function deletePresetItem(idx){
+  masterData.ratioPresets.splice(idx,1);
+  renderMasterLists();refreshAllDropdowns();saveMaster();showToast('🗑 プリセットを削除しました（このプリセットを使っていた項目は収入比として計算されます）');
+}
+
+function addMasterItem(key,inputId){
+  const input=document.getElementById(inputId);const val=input.value.trim();
+  if(!val){showToast('名前を入力してください');return;}
+  if(masterData[key].includes(val)){showToast('すでに登録されています');return;}
+  masterData[key].push(val);input.value='';
+  renderMasterLists();refreshAllDropdowns();saveMaster();showToast('✅ 追加しました：'+val);
+}
+function updateMasterItem(key,idx,val){const v=val.trim();if(!v)return;masterData[key][idx]=v;refreshAllDropdowns();saveMaster();}
+function deleteMasterItem(key,idx){const r=masterData[key][idx];masterData[key].splice(idx,1);renderMasterLists();refreshAllDropdowns();saveMaster();showToast('🗑 削除しました：'+r);}
+async function saveMaster(){try{await fbPut(MASTER_PATH,masterData);}catch(e){showToast('⚠️ マスタの同期に失敗しました');}}
+
+function baseUrl(){return FIREBASE_URL.replace(/\/$/,'');}
+async function fbGet(path){const r=await fetch(`${baseUrl()}/${path}.json`);if(!r.ok)throw new Error();return r.json();}
+async function fbPut(path,data){const r=await fetch(`${baseUrl()}/${path}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok)throw new Error();return r.json();}
+async function fbPost(path,data){const r=await fetch(`${baseUrl()}/${path}.json`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok)throw new Error();return r.json();}
+async function fbDelete(path){const r=await fetch(`${baseUrl()}/${path}.json`,{method:'DELETE'});if(!r.ok)throw new Error();}
+function fbListenSSE(path,cb){
+  const es=new EventSource(`${baseUrl()}/${path}.json`);
+  const h=e=>{try{cb(JSON.parse(e.data));}catch(err){}};
+  es.addEventListener('put',h);es.addEventListener('patch',h);es.onerror=()=>setSyncStatus('error');return es;
+}
+function setSyncStatus(s){
+  const el=document.getElementById('syncStatus');
+  const m={ok:['sync-ok','✅ 接続済み・リアルタイム同期中'],error:['sync-err','❌ Firebase接続エラー'],wait:['sync-wait','⏳ Firebase接続中...'],saved:['sync-ok','💾 同期しました']};
+  const[c,t]=m[s]||m.wait;el.className='sync-status '+c;el.textContent=t;
+}
+function fmt(n){return'¥'+Math.round(n).toLocaleString('ja-JP');}
+function fmtDiff(n){
+  if(Math.abs(n)<1)return'<span class="diff-zero">変化なし</span>';
+  const cls=n>0?'diff-up':'diff-down',mark=n>0?'▲':'▼';
+  return`<span class="${cls}">${mark} ${n>0?'+':''}${fmt(Math.abs(n))}</span>`;
+}
+
+function getPreset(id){ return (masterData.ratioPresets||[]).find(p=>p.id===id); }
+function payerLabel(p){
+  if(p==='half')return'👫 共同(50:50)';
+  if(p==='auto')return'👫 共同(収入比)';
+  if(p==='husband')return'👨 夫のみ';
+  if(p==='wife')return'👩 妻のみ';
+  const preset=getPreset(p);
+  return preset ? `👫 ${preset.name}` : '👫 共同(収入比)';
+}
+function payerBadge(p){
+  if(p==='half')return'badge-half';
+  if(p==='auto')return'badge-auto';
+  if(p==='husband')return'badge-husband';
+  if(p==='wife')return'badge-wife';
+  return 'badge-preset';
+}
+function calcHPct(payer,hRatio){
+  if(payer==='half')return 50;
+  if(payer==='auto')return hRatio*100;
+  if(payer==='husband')return 100;
+  if(payer==='wife')return 0;
+  const preset=getPreset(payer);
+  return preset ? preset.hPct : hRatio*100;
+}
+
+function monthKey(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;}
+function isItemPaid(itemId,person){const mk=monthKey();return !!(paidData[mk]&&paidData[mk][itemId+'_'+person]);}
+async function toggleItemPaid(itemId,person,checked){
+  const mk=monthKey();
+  if(!paidData[mk])paidData[mk]={};
+  paidData[mk][itemId+'_'+person]=checked;
+  const lbl=document.getElementById(`lbl_${itemId}_${person}`);
+  if(lbl)lbl.classList.toggle('checked',checked);
+  try{await fbPut(PAID_PATH,paidData);}
+  catch(e){showToast('⚠️ 振込状況の同期に失敗しました');}
+}
+
+function getFormData(){
+  const rows=[],subs=[],ins=[];
+  document.querySelectorAll('#expenseList .expense-row').forEach(r=>rows.push({
+    id:r.dataset.itemId,name:r.querySelector('.exp-name').value,amount:r.querySelector('.exp-amount').value,
+    cycle:r.querySelector('.exp-cycle').value,mode:r.querySelector('.exp-mode').value,
+    hPct:parseFloat(r.querySelector('.exp-h-pct').value)||50,account:r.querySelector('.account-sel').value||''
+  }));
+  document.querySelectorAll('#subList .sub-row').forEach(r=>subs.push({
+    id:r.dataset.itemId,name:r.querySelector('.sub-name').value,amount:r.querySelector('.sub-amount').value,
+    payer:r.querySelector('.sub-payer').value,account:r.querySelector('.sub-account-sel').value||''
+  }));
+  document.querySelectorAll('#insList .ins-row').forEach(r=>ins.push({
+    id:r.dataset.itemId,name:r.querySelector('.ins-name').value,type:r.querySelector('.ins-type-sel').value,
+    company:r.querySelector('.ins-company-sel').value,amount:r.querySelector('.ins-amount').value,
+    payer:r.querySelector('.ins-payer-sel').value,account:r.querySelector('.ins-account-sel').value||''
+  }));
+  return{h:document.getElementById('husbandIncome').value,w:document.getElementById('wifeIncome').value,rows,subs,ins,updatedAt:Date.now()};
+}
+function applyData(data){
+  if(!data)return;
+  document.getElementById('husbandIncome').value=data.h||'';
+  document.getElementById('wifeIncome').value=data.w||'';
+  const rowsArr=(data.rows&&data.rows.length)?data.rows:DEFAULT_ITEMS;
+  document.getElementById('expenseList').innerHTML='';
+  rowsArr.forEach((r,i)=>addRow(r,i,rowsArr.length));
+  const subsArr=(data.subs&&data.subs.length)?data.subs:DEFAULT_SUBS;
+  document.getElementById('subList').innerHTML='';
+  subsArr.forEach((s,i)=>addSubRow(s,i,subsArr.length));
+  const insArr=(data.ins&&data.ins.length)?data.ins:DEFAULT_INS;
+  document.getElementById('insList').innerHTML='';
+  insArr.forEach((it,i)=>addInsRow(it,i,insArr.length));
+}
+function addRow(data,idx,total){
+  data=data||{name:'',amount:'',cycle:'monthly',mode:'auto',hPct:50,account:''};
+  const wPct=100-(data.hPct||50),isFirst=idx===0,isLast=idx===(total-1);
+  const div=document.createElement('div');div.className='expense-row';
+  div.dataset.itemId=data.id||uid();
+  div.innerHTML=`
+    <div class="expense-row-header">
+      <input type="text" class="exp-name" value="${data.name||''}" placeholder="項目名">
+      <div class="row-controls">
+        <button class="btn-move-row" onclick="moveItemRow('rows',${idx},-1)" ${isFirst?'disabled':''}>↑</button>
+        <button class="btn-move-row" onclick="moveItemRow('rows',${idx},1)" ${isLast?'disabled':''}>↓</button>
+        <button class="btn-del" onclick="removeExpenseRow(this)">✕</button>
+      </div>
+    </div>
+    <div class="expense-row-body">
+      <div class="exp-amount-wrap"><input type="number" class="exp-amount" min="0" value="${data.amount||''}" placeholder="金額"><span>円</span></div>
+      <select class="exp-cycle">
+        <option value="monthly" ${data.cycle==='monthly'?'selected':''}>毎月払い</option>
+        <option value="yearly" ${data.cycle==='yearly'?'selected':''}>年1回（÷12月割り）</option>
+        <option value="bonus_summer" ${data.cycle==='bonus_summer'?'selected':''}>🌻 夏ボーナス払い</option>
+        <option value="bonus_winter" ${data.cycle==='bonus_winter'?'selected':''}>⛄ 冬ボーナス払い</option>
+        <option value="yearly_lump" ${data.cycle==='yearly_lump'?'selected':''}>年1回・一括（月割りなし）</option>
+      </select>
+      <select class="exp-mode" onchange="toggleMode(this)">${buildExpModeOptions(data.mode)}</select>
+      <div class="fixed-ratio ${data.mode==='fixed'?'':'hidden'}">
+        <span>夫</span><input type="number" class="exp-h-pct" min="0" max="100" value="${data.hPct||50}" oninput="syncPct(this,'h')">
+        <span>%　妻</span><input type="number" class="exp-w-pct" min="0" max="100" value="${wPct}" oninput="syncPct(this,'w')"><span>%</span>
+      </div>
+      <select class="account-sel">${buildAccountOptions(data.account)}</select>
+    </div>`;
+  document.getElementById('expenseList').appendChild(div);
+}
+function removeExpenseRow(btn){const data=getFormData();const idx=Array.from(document.querySelectorAll('#expenseList .expense-row')).indexOf(btn.closest('.expense-row'));data.rows.splice(idx,1);applyData(data);scheduleAutoSave();}
+function addNewExpenseRow(){const data=getFormData();data.rows.push({name:'',amount:'',cycle:'monthly',mode:'auto',hPct:50,account:''});applyData(data);scheduleAutoSave();}
+function toggleMode(selectEl){const fr=selectEl.parentElement.querySelector('.fixed-ratio');if(fr)fr.classList.toggle('hidden',selectEl.value!=='fixed');scheduleAutoSave();}
+function syncPct(inputEl,which){const wrap=inputEl.closest('.fixed-ratio');const h=wrap.querySelector('.exp-h-pct'),w=wrap.querySelector('.exp-w-pct');let val=Math.min(100,Math.max(0,parseFloat(which==='h'?h.value:w.value)||0));if(which==='h'){h.value=val;w.value=100-val;}else{w.value=val;h.value=100-val;}}
+function addSubRow(data,idx,total){
+  data=data||{name:'',amount:'',payer:'half',account:''};
+  const isFirst=idx===0,isLast=idx===(total-1);
+  const div=document.createElement('div');div.className='sub-row';
+  div.dataset.itemId=data.id||uid();
+  div.innerHTML=`
+    <div class="sub-row-header">
+      <input type="text" class="sub-name" value="${data.name||''}" placeholder="サービス名">
+      <div class="row-controls">
+        <button class="btn-move-row" onclick="moveItemRow('subs',${idx},-1)" ${isFirst?'disabled':''}>↑</button>
+        <button class="btn-move-row" onclick="moveItemRow('subs',${idx},1)" ${isLast?'disabled':''}>↓</button>
+        <button class="btn-del" onclick="removeSubRow(this)">✕</button>
+      </div>
+    </div>
+    <div class="sub-row-body">
+      <div class="sub-amount-wrap"><input type="number" class="sub-amount" min="0" value="${data.amount||''}" placeholder="月額"><span>円</span></div>
+      <select class="sub-payer" onchange="scheduleAutoSave()">${buildPayerOptions(data.payer)}</select>
+      <select class="sub-account-sel">${buildAccountOptions(data.account)}</select>
+    </div>`;
+  document.getElementById('subList').appendChild(div);
+}
+function removeSubRow(btn){const data=getFormData();const idx=Array.from(document.querySelectorAll('#subList .sub-row')).indexOf(btn.closest('.sub-row'));data.subs.splice(idx,1);applyData(data);scheduleAutoSave();}
+function addNewSubRow(){const data=getFormData();data.subs.push({name:'',amount:'',payer:'half',account:''});applyData(data);scheduleAutoSave();}
+function addInsRow(data,idx,total){
+  data=data||{name:'',type:'',company:'',amount:'',payer:'husband',account:''};
+  const isFirst=idx===0,isLast=idx===(total-1);
+  const div=document.createElement('div');div.className='ins-row';
+  div.dataset.itemId=data.id||uid();
+  div.innerHTML=`
+    <div class="ins-row-header">
+      <input type="text" class="ins-name" value="${data.name||''}" placeholder="保険名">
+      <div class="row-controls">
+        <button class="btn-move-row" onclick="moveItemRow('ins',${idx},-1)" ${isFirst?'disabled':''}>↑</button>
+        <button class="btn-move-row" onclick="moveItemRow('ins',${idx},1)" ${isLast?'disabled':''}>↓</button>
+        <button class="btn-del" onclick="removeInsRow(this)">✕</button>
+      </div>
+    </div>
+    <div class="ins-row-body">
+      <div class="ins-amount-wrap"><input type="number" class="ins-amount" min="0" value="${data.amount||''}" placeholder="月額保険料"><span>円</span></div>
+      <select class="ins-type-sel">${buildOptions(masterData.insTypes,data.type,'種別を選択')}</select>
+      <select class="ins-company-sel">${buildOptions(masterData.insCompanies,data.company,'保険会社を選択')}</select>
+      <select class="ins-payer-sel" onchange="scheduleAutoSave()">${buildPayerOptions(data.payer)}</select>
+      <select class="ins-account-sel">${buildAccountOptions(data.account)}</select>
+    </div>`;
+  document.getElementById('insList').appendChild(div);
+}
+function removeInsRow(btn){const data=getFormData();const idx=Array.from(document.querySelectorAll('#insList .ins-row')).indexOf(btn.closest('.ins-row'));data.ins.splice(idx,1);applyData(data);scheduleAutoSave();}
+function addNewInsRow(){const data=getFormData();data.ins.push({name:'',type:'',company:'',amount:'',payer:'husband',account:''});applyData(data);scheduleAutoSave();}
+function moveItemRow(type,idx,dir){
+  const data=getFormData();const arr=data[type];const ni=idx+dir;
+  if(ni<0||ni>=arr.length)return;
+  [arr[idx],arr[ni]]=[arr[ni],arr[idx]];
+  applyData(data);scheduleAutoSave();
+}
+function scheduleAutoSave(){clearTimeout(autoSaveTimer);autoSaveTimer=setTimeout(pushToFirebase,1000);}
+async function pushToFirebase(){
+  const data=getFormData();
+  localStorage.setItem('kakeiboDataBackup',JSON.stringify(data));
+  try{await fbPut(CURRENT_PATH,data);setSyncStatus('saved');document.getElementById('saveStatus').textContent='💾 '+new Date().toLocaleTimeString('ja-JP')+' に自動保存しました';}
+  catch(e){setSyncStatus('error');document.getElementById('saveStatus').textContent='⚠️ 同期に失敗しました（この端末には保存済みです）';}
+}
+document.addEventListener('input',e=>{if(e.target.matches('.exp-name,.exp-amount,.exp-h-pct,.exp-w-pct,.sub-name,.sub-amount,.ins-name,.ins-amount,#husbandIncome,#wifeIncome'))scheduleAutoSave();});
+document.addEventListener('change',e=>{if(e.target.matches('.exp-cycle,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel'))scheduleAutoSave();});
+
+function tryAutoCalculate(){const h=parseFloat(document.getElementById('husbandIncome').value)||0;const w=parseFloat(document.getElementById('wifeIncome').value)||0;if(h+w>0)calculate(false);}
+function calcSubs(subsData,hRatio){
+  let subsTotal=0,subsH=0,subsW=0;const details=[];
+  subsData.forEach(s=>{
+    const amount=parseFloat(s.amount)||0;if(amount<=0)return;
+    const hPct=calcHPct(s.payer,hRatio),hVal=amount*hPct/100,wVal=amount*(100-hPct)/100;
+    subsTotal+=amount;subsH+=hVal;subsW+=wVal;
+    details.push({id:s.id,name:s.name||'（無題）',amount,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
+  });
+  return{subsTotal,subsH,subsW,details};
+}
+function calcIns(insData,hRatio){
+  let insTotal=0,insH=0,insW=0;const details=[];
+  insData.forEach(i=>{
+    const amount=parseFloat(i.amount)||0;if(amount<=0)return;
+    const hPct=calcHPct(i.payer,hRatio),hVal=amount*hPct/100,wVal=amount*(100-hPct)/100;
+    insTotal+=amount;insH+=hVal;insW+=wVal;
+    details.push({id:i.id,name:i.name||'（無題）',type:i.type||'',company:i.company||'',amount,hVal,wVal,label:payerLabel(i.payer),badgeCls:payerBadge(i.payer),account:i.account||''});
+  });
+  return{insTotal,insH,insW,details};
+}
+function calcAccounts(monthlyItems,summerItems,winterItems,lumpItems,subDetails,insDetails){
+  const map={};
+  function add(account,name,amount,hVal,wVal,category){
+    if(!account)return;
+    if(!map[account])map[account]={name:account,total:0,hTotal:0,wTotal:0,items:[]};
+    map[account].total+=amount;map[account].hTotal+=hVal;map[account].wTotal+=wVal;
+    map[account].items.push({name,amount,hVal,wVal,category});
+  }
+  monthlyItems.forEach(i=>add(i.account,i.name,i.monthly,i.hM,i.wM,i.cycle==='yearly'?'📅年額÷12':'📅毎月'));
+  summerItems.forEach(i=>add(i.account,i.name,i.amount,i.hVal,i.wVal,'🌻夏ボーナス'));
+  winterItems.forEach(i=>add(i.account,i.name,i.amount,i.hVal,i.wVal,'⛄冬ボーナス'));
+  lumpItems.forEach(i=>add(i.account,i.name,i.amount,i.hY,i.wY,'📆年一括'));
+  subDetails.forEach(s=>add(s.account,s.name,s.amount,s.hVal,s.wVal,'📱サブスク'));
+  insDetails.forEach(i=>add(i.account,i.name,i.amount,i.hVal,i.wVal,'🛡️保険'));
+  return Object.values(map).sort((a,b)=>b.total-a.total);
+}
+function calcRatios(hIncome,wIncome,rows){
+  const hRatio=(hIncome+wIncome)>0?hIncome/(hIncome+wIncome):0;
+  let totalMonthly=0,totalH=0,totalW=0,sTotal=0,sH=0,sW=0,wnTotal=0,wnH=0,wnW=0,yTotal=0,yH=0,yW=0;
+  const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[];
+  rows.forEach(r=>{
+    const amount=parseFloat(r.amount)||0;if(amount<=0)return;
+    let hPct;
+    if(r.mode==='fixed') hPct=r.hPct||0;
+    else if(r.mode==='auto') hPct=hRatio*100;
+    else { const p=getPreset(r.mode); hPct=p?p.hPct:hRatio*100; }
+
+    const wPct=100-hPct;
+    if(r.cycle==='bonus_summer'||r.cycle==='bonus_winter'){
+      const hB=amount*hPct/100,wB=amount*wPct/100;
+      const item={id:r.id,name:r.name,amount,hVal:hB,wVal:wB,mode:r.mode,hPct,account:r.account||''};
+      if(r.cycle==='bonus_summer'){sTotal+=amount;sH+=hB;sW+=wB;summerItems.push(item);}
+      else{wnTotal+=amount;wnH+=hB;wnW+=wB;winterItems.push(item);}
+      return;
+    }
+    if(r.cycle==='yearly_lump'){
+      const hY=amount*hPct/100,wY=amount*wPct/100;
+      yTotal+=amount;yH+=hY;yW+=wY;
+      lumpItems.push({id:r.id,name:r.name,amount,hY,wY,mode:r.mode,hPct,account:r.account||''});
+      return;
+    }
+    const monthly=r.cycle==='yearly'?amount/12:amount;
+    const hM=monthly*hPct/100,wM=monthly*wPct/100;
+    totalMonthly+=monthly;totalH+=hM;totalW+=wM;
+    monthlyItems.push({id:r.id,name:r.name,monthly,hM,wM,cycle:r.cycle,mode:r.mode,hPct,account:r.account||''});
+  });
+  return{hRatio,totalMonthly,totalH,totalW,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
+}
+
+function buildSettlementForCategory(items){
+  const husbandAcctName = getAccountNameByRole('husband');
+  const wifeAcctName    = getAccountNameByRole('wife');
+
+  let hToWife=0, wToHusband=0, hToJoint=0, wToJoint=0;
+  const detailRows=[];
+
+  items.forEach(item=>{
+    const acctObj = masterData.accounts.find(a=>acctName(a)===item.account);
+    const r = acctObj ? acctRole(acctObj) : 'other';
+    if(r==='wife'){
+      hToWife += item.hVal;
+      detailRows.push({name:item.name, amount:item.amount, hVal:item.hVal, wVal:item.wVal, acct:item.account, direction:`夫→${wifeAcctName}`, dirAmt:item.hVal});
+    } else if(r==='husband'){
+      wToHusband += item.wVal;
+      detailRows.push({name:item.name, amount:item.amount, hVal:item.hVal, wVal:item.wVal, acct:item.account, direction:`妻→${husbandAcctName}`, dirAmt:item.wVal});
+    } else if(r==='joint'){
+      hToJoint += item.hVal;
+      wToJoint += item.wVal;
+      detailRows.push({name:item.name, amount:item.amount, hVal:item.hVal, wVal:item.wVal, acct:item.account, direction:'各自→共同口座', dirAmt:null});
+    }
+  });
+
+  const net = wToHusband - hToWife;
+  return {net, hToJoint, wToJoint, detailRows, husbandAcctName, wifeAcctName};
+}
+
+function renderSettlement(allItems, label){
+  const res = buildSettlementForCategory(allItems);
+  const {net, hToJoint, wToJoint, detailRows, husbandAcctName, wifeAcctName} = res;
+
+  let detailHtml='<table><tbody>';
+  detailRows.forEach(d=>{
+    detailHtml+=`<tr><td>${d.name}</td><td>${fmt(d.amount)}</td><td>夫:${fmt(d.hVal)} / 妻:${fmt(d.wVal)}</td><td>${d.direction}${d.dirAmt!==null?' '+fmt(d.dirAmt):''}</td></tr>`;
+  });
+  detailHtml+='</tbody></table>';
+
+  let actionHtml='';
+  if(Math.abs(net)<1){
+    actionHtml=`<div class="settle-action">✅ 夫婦間の直接振込は不要です（相殺ゼロ）</div>`;
+  } else if(net>0){
+    actionHtml=`<div class="settle-action">👩 ${wifeAcctName} <span class="arrow">→</span> ${husbandAcctName} へ<br><span style="font-size:1.4rem;">${fmt(net)}</span> を振り込む</div>`;
+  } else {
+    actionHtml=`<div class="settle-action">👨 ${husbandAcctName} <span class="arrow">→</span> ${wifeAcctName} へ<br><span style="font-size:1.4rem;">${fmt(Math.abs(net))}</span> を振り込む</div>`;
+  }
+
+  let jointHtml='';
+  if(hToJoint>0||wToJoint>0){
+    jointHtml=`<div style="margin-top:8px;font-size:0.85rem;color:#555;">共同口座へ：👨 ${husbandAcctName.split(' ')[0]||'夫'} ${fmt(hToJoint)}、👩 ${wifeAcctName.split(' ')[0]||'妻'} ${fmt(wToJoint)} をそれぞれ入金</div>`;
+  }
+
+  return `<div class="settle-block">
+    <div class="settle-block-title">${label}</div>
+    ${actionHtml}
+    ${jointHtml}
+    <div class="settle-detail" style="margin-top:8px;">${detailHtml}</div>
+  </div>`;
+}
+
+function calculateAndRenderSettlement(res, subs, ins){
+  const monthlyItems = [
+    ...res.monthlyItems.map(i=>({name:i.name,amount:i.monthly,hVal:i.hM,wVal:i.wM,account:i.account})),
+    ...subs.details.map(i=>({name:i.name,amount:i.amount,hVal:i.hVal,wVal:i.wVal,account:i.account})),
+    ...ins.details.map(i=>({name:i.name,amount:i.amount,hVal:i.hVal,wVal:i.wVal,account:i.account})),
+  ];
+  const summerItems = res.summerItems.map(i=>({name:i.name,amount:i.amount,hVal:i.hVal,wVal:i.wVal,account:i.account}));
+  const winterItems = res.winterItems.map(i=>({name:i.name,amount:i.amount,hVal:i.hVal,wVal:i.wVal,account:i.account}));
+  const lumpItems   = res.lumpItems.map(i=>({name:i.name,amount:i.amount,hVal:i.hY,wVal:i.wY,account:i.account}));
+
+  let html='';
+  html += renderSettlement(monthlyItems, '📅 月々の精算（毎月実行）');
+  if(summerItems.length) html += renderSettlement(summerItems, '🌻 夏ボーナス時の精算');
+  if(winterItems.length) html += renderSettlement(winterItems, '⛄ 冬ボーナス時の精算');
+  if(lumpItems.length)   html += renderSettlement(lumpItems,   '📆 年一括払い時の精算');
+
+  document.getElementById('settlementContent').innerHTML=html;
+  document.getElementById('settlementSection').classList.remove('hidden');
+}
+
+function calculate(autoSwitch=true){
+  const hIncome=parseFloat(document.getElementById('husbandIncome').value)||0;
+  const wIncome=parseFloat(document.getElementById('wifeIncome').value)||0;
+  if(hIncome+wIncome<=0){showToast('⚠️ 夫婦どちらかの収入を入力してください。');return;}
+  const fd=getFormData();
+  const res=calcRatios(hIncome,wIncome,fd.rows);
+  const subs=calcSubs(fd.subs,res.hRatio);
+  const ins=calcIns(fd.ins,res.hRatio);
+  const grandH=res.totalH+subs.subsH+ins.insH;
+  const grandW=res.totalW+subs.subsW+ins.insW;
+  lastCalcResult={hIncome,wIncome,...res,subs,ins};
+  document.getElementById('husbandBar').style.width=(res.hRatio*100)+'%';
+  document.getElementById('wifeBar').style.width=((1-res.hRatio)*100)+'%';
+  document.getElementById('husbandRatioLabel').textContent=`夫 ${(res.hRatio*100).toFixed(1)}%（${fmt(hIncome)}）`;
+  document.getElementById('wifeRatioLabel').textContent=`妻 ${((1-res.hRatio)*100).toFixed(1)}%（${fmt(wIncome)}）`;
+
+  const tbodyM=document.getElementById('resultBody');tbodyM.innerHTML='';
+  const allMonthlyItems=[
+    ...res.monthlyItems.map(i=>{
+      let b='';
+      if(i.cycle==='yearly') b+='<span class="badge badge-yearly">年額÷12</span>';
+      if(i.mode==='fixed') b+=`<span class="badge badge-fixed">固定 ${i.hPct.toFixed(0)}:${(100-i.hPct).toFixed(0)}</span>`;
+      else if(i.mode!=='auto') { const p=getPreset(i.mode); if(p) b+=`<span class="badge badge-preset">${p.name}</span>`; else b+=`<span class="badge badge-fixed">⚠削除済み</span>`; }
+      return {...i,amount:i.monthly,hVal:i.hM,wVal:i.wM,badge:b,tip:''};
+    }),
+    ...subs.details.map(i=>({...i,badge:`<span class="badge ${i.badgeCls}">${i.label}</span>`,tip:''})),
+    ...ins.details.map(i=>({...i,badge:`<span class="badge badge-cat">保険</span><span class="badge ${i.badgeCls}">${i.label}</span>`,tip:`種別: ${i.type||'未設定'} / 保険会社: ${i.company||'未設定'}`}))
+  ];
+  allMonthlyItems.forEach(item=>{
+    const hPaid=isItemPaid(item.id,'h'),wPaid=isItemPaid(item.id,'w');
+    let hCheckHtml='-';
+    if(item.hVal>0)hCheckHtml=`<label id="lbl_${item.id}_h" class="item-check-label ${hPaid?'checked':''}"><input type="checkbox" ${hPaid?'checked':''} onchange="toggleItemPaid('${item.id}','h',this.checked)"> ${fmt(item.hVal)}</label>`;
+    let wCheckHtml='-';
+    if(item.wVal>0)wCheckHtml=`<label id="lbl_${item.id}_w" class="item-check-label ${wPaid?'checked':''}"><input type="checkbox" ${wPaid?'checked':''} onchange="toggleItemPaid('${item.id}','w',this.checked)"> ${fmt(item.wVal)}</label>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td${item.tip?` title="${item.tip}"`:''}>${item.name}${item.badge}</td><td>${fmt(item.amount)}</td><td>${item.account||'—'}</td><td class="husband-amount">${hCheckHtml}</td><td class="wife-amount">${wCheckHtml}</td>`;
+    tbodyM.appendChild(tr);
+  });
+  document.getElementById('totalMonthly').textContent=fmt(res.totalMonthly+subs.subsTotal+ins.insTotal);
+  document.getElementById('totalHusband').textContent=fmt(grandH);
+  document.getElementById('totalWife').textContent=fmt(grandW);
+  document.getElementById('summaryH').textContent=fmt(grandH);
+  document.getElementById('summaryW').textContent=fmt(grandW);
+  document.getElementById('breakdownH').innerHTML=`固定費 ${fmt(res.totalH)}<br>サブスク ${fmt(subs.subsH)}<br>保険料 ${fmt(ins.insH)}`;
+  document.getElementById('breakdownW').innerHTML=`固定費 ${fmt(res.totalW)}<br>サブスク ${fmt(subs.subsW)}<br>保険料 ${fmt(ins.insW)}`;
+  document.getElementById('remainH').textContent=fmt(hIncome-grandH);
+  document.getElementById('remainW').textContent=fmt(wIncome-grandW);
+  calculateAndRenderSettlement(res,subs,ins);
+  const accts=calcAccounts(res.monthlyItems,res.summerItems,res.winterItems,res.lumpItems,subs.details,ins.details);
+  renderAccounts(accts);
+  renderBonusSection('bonusSummerSection','bonusSummerBody','bonusSummerTotal','bonusSummerH','bonusSummerW',res.sTotal,res.sH,res.sW,res.summerItems);
+  renderBonusSection('bonusWinterSection','bonusWinterBody','bonusWinterTotal','bonusWinterH','bonusWinterW',res.wnTotal,res.wnH,res.wnW,res.winterItems);
+  const yoSec=document.getElementById('yearlyLumpSection'),yoBody=document.getElementById('yearlyLumpBody');yoBody.innerHTML='';
+  if(res.yTotal>0){
+    yoSec.classList.remove('hidden');
+    res.lumpItems.forEach(item=>{
+      let fb='';
+      if(item.mode==='fixed') fb=`<span class="badge badge-fixed">固定 ${item.hPct.toFixed(0)}:${(100-item.hPct).toFixed(0)}</span>`;
+      else if(item.mode!=='auto'){ const p=getPreset(item.mode); if(p) fb=`<span class="badge badge-preset">${p.name}</span>`; }
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${item.name}<span class="badge badge-lump">一括</span>${fb}</td><td>${fmt(item.amount)}</td><td>${item.account||'—'}</td><td class="husband-amount">${fmt(item.hY)}</td><td class="wife-amount">${fmt(item.wY)}</td>`;
+      yoBody.appendChild(tr);
+    });
+    document.getElementById('yearlyLumpTotal').textContent=fmt(res.yTotal);
+    document.getElementById('yearlyLumpH').textContent=fmt(res.yH);
+    document.getElementById('yearlyLumpW').textContent=fmt(res.yW);
+  }else{yoSec.classList.add('hidden');}
+  if(pieChart)pieChart.destroy();
+  pieChart=new Chart(document.getElementById('pieChart'),{type:'pie',data:{labels:['夫の月間負担','妻の月間負担'],datasets:[{data:[grandH,grandW],backgroundColor:['#667eea','#f5576c']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
+  if(barChart)barChart.destroy();
+  const barLabels=allMonthlyItems.map(i=>i.name.replace(/（[^）]*）/g,'').replace(/[🛒⚡🔥💧🏠👶🏫🚗📺🎵☁️]/gu,'').trim());
+  barChart=new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:barLabels,datasets:[{label:'夫の負担',data:allMonthlyItems.map(i=>Math.round(i.hVal)),backgroundColor:'rgba(102,126,234,0.75)'},{label:'妻の負担',data:allMonthlyItems.map(i=>Math.round(i.wVal)),backgroundColor:'rgba(245,87,108,0.75)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'¥'+v.toLocaleString()}},x:{ticks:{maxRotation:45,minRotation:30,font:{size:10}}}}}});
+  document.getElementById('noResultMsg').classList.add('hidden');
+  document.getElementById('resultAreaWrapper').classList.remove('hidden');
+  applyOrders();
+  if(autoSwitch)switchTab('result');
+}
+function renderAccounts(accts){
+  lastAccts=accts;
+  const list=document.getElementById('acctList');list.innerHTML='';
+  if(!accts.length){document.getElementById('res-acct').classList.add('hidden');return;}
+  document.getElementById('res-acct').classList.remove('hidden');
+  accts.forEach(a=>{
+    const div=document.createElement('div');div.className='acct-item';
+    let itemRows='';
+    a.items.forEach(i=>{itemRows+=`<tr><td>${i.name}</td><td><span class="badge badge-cat">${i.category}</span></td><td>${fmt(i.amount)}</td><td class="husband-amount">${fmt(i.hVal)}</td><td class="wife-amount">${fmt(i.wVal)}</td></tr>`;});
+    div.innerHTML=`
+      <div class="acct-item-header"><span class="acct-name">🏦 ${a.name}</span><span class="acct-total-badge">合計 ${fmt(a.total)}</span></div>
+      <div class="acct-breakdown">
+        <div class="acct-breakdown-item"><div class="ab-label">夫の負担分</div><div class="ab-value husband-amount">${fmt(a.hTotal)}</div></div>
+        <div class="acct-breakdown-item"><div class="ab-label">妻の負担分</div><div class="ab-value wife-amount">${fmt(a.wTotal)}</div></div>
+      </div>
+      <div style="overflow-x:auto;"><table class="result-table acct-table" style="font-size:0.8rem;"><thead><tr><th>項目名</th><th>種別</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody>${itemRows}</tbody></table></div>`;
+    list.appendChild(div);
+  });
+}
+function renderBonusSection(sId,bId,tId,hId,wId,total,hVal,wVal,items){
+  const sec=document.getElementById(sId),tbody=document.getElementById(bId);tbody.innerHTML='';
+  if(total<=0){sec.classList.add('hidden');return;}sec.classList.remove('hidden');
+  items.forEach(item=>{
+    let fb='';
+    if(item.mode==='fixed') fb=`<span class="badge badge-fixed">固定 ${item.hPct.toFixed(0)}:${(100-item.hPct).toFixed(0)}</span>`;
+    else if(item.mode!=='auto'){ const p=getPreset(item.mode); if(p) fb=`<span class="badge badge-preset">${p.name}</span>`; }
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${item.name}${fb}</td><td>${fmt(item.amount)}</td><td>${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById(tId).textContent=fmt(total);document.getElementById(hId).textContent=fmt(hVal);document.getElementById(wId).textContent=fmt(wVal);
+}
+async function saveHistory(){
+  const data=getFormData(),now=new Date();
+  const inputTitle=document.getElementById('historyTitle').value.trim();
+  const label=inputTitle||`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${now.toLocaleTimeString('ja-JP')}`;
+  try{await fbPost(HISTORY_PATH,{...data,label,savedAt:Date.now()});showToast('💾 履歴に保存しました：'+label);document.getElementById('historyTitle').value='';loadHistoryList();}
+  catch(e){showToast('❌ 履歴の保存に失敗しました');}
+}
+async function loadHistoryList(){
+  const el=document.getElementById('historyList');
+  try{
+    const data=await fbGet(HISTORY_PATH);
+    if(!data){el.innerHTML='<div class="history-empty">まだ履歴がありません。</div>';updateSelectedCount();return;}
+    const entries=Object.entries(data).sort((a,b)=>(b[1].savedAt||0)-(a[1].savedAt||0));
+    el.innerHTML='';
+    entries.forEach(([key,record])=>{
+      const hI=parseFloat(record.h)||0,wI=parseFloat(record.w)||0;
+      const res2=calcRatios(hI,wI,record.rows||[]);
+      const sub2=calcSubs(record.subs||[],res2.hRatio);
+      const ins2=calcIns(record.ins||[],res2.hRatio);
+      const hP=(res2.hRatio*100).toFixed(1),wP=((1-res2.hRatio)*100).toFixed(1);
+      const rc=(record.rows||[]).filter(r=>parseFloat(r.amount)>0).length;
+      const sc=(record.subs||[]).filter(s=>parseFloat(s.amount)>0).length;
+      const ic=(record.ins||[]).filter(i=>parseFloat(i.amount)>0).length;
+      const gH=res2.totalH+sub2.subsH+ins2.insH,gW=res2.totalW+sub2.subsW+ins2.insW;
+      const div=document.createElement('div');div.className='history-item';
+      div.innerHTML=`
+        <div class="history-item-top">
+          <input type="checkbox" class="history-checkbox" data-key="${key}" onchange="updateSelectedCount()">
+          <span class="history-item-title">📅 ${record.label}</span>
+        </div>
+        <div class="history-item-meta">夫 ${fmt(hI)}（${hP}%）／妻 ${fmt(wI)}（${wP}%）／費用${rc}件・サブスク${sc}件・保険${ic}件</div>
+        <div class="history-summary">
+          <div class="hs-item"><div class="hs-label">月々合計</div><div class="hs-value">${fmt(res2.totalMonthly+sub2.subsTotal+ins2.insTotal)}</div></div>
+          <div class="hs-item"><div class="hs-label">夫の最終負担</div><div class="hs-value husband-amount">${fmt(gH)}</div></div>
+          <div class="hs-item"><div class="hs-label">妻の最終負担</div><div class="hs-value wife-amount">${fmt(gW)}</div></div>
+        </div>
+        <div class="history-item-btns" style="margin-top:8px;">
+          <button class="btn-warning" onclick="restoreHistory('${key}')">↩ 復元して入力に反映</button>
+          <button class="btn-compare" onclick="compareHistory('${key}')">🔍 現在と比較</button>
+        </div>`;
+      el.appendChild(div);
+    });
+    updateSelectedCount();
+  }catch(e){el.innerHTML='<div class="history-empty">履歴の読み込みに失敗しました。</div>';}
+}
+function updateSelectedCount(){document.getElementById('selectedCount').textContent=document.querySelectorAll('.history-checkbox:checked').length;}
+async function restoreHistory(key){
+  try{
+    const data=await fbGet(`${HISTORY_PATH}/${key}`);
+    if(!data){showToast('データが見つかりませんでした');return;}
+    applyData(data);calculate(false);await pushToFirebase();
+    showToast('↩ 履歴を復元しました：'+(data.label||''));
+    switchTab('input');
+  }catch(e){showToast('❌ 復元に失敗しました');}
+}
+async function compareHistory(key){
+  if(!lastCalcResult){showToast('先に「⚡ 計算する」を押してから比較してください');return;}
+  try{
+    const past=await fbGet(`${HISTORY_PATH}/${key}`);if(!past){showToast('データが見つかりませんでした');return;}
+    const pHI=parseFloat(past.h)||0,pWI=parseFloat(past.w)||0;
+    const pRes=calcRatios(pHI,pWI,past.rows||[]);
+    const pSubs=calcSubs(past.subs||[],pRes.hRatio);
+    const pIns=calcIns(past.ins||[],pRes.hRatio);
+    const cur=lastCalcResult;
+    const curGH=cur.totalH+cur.subs.subsH+cur.ins.insH,curGW=cur.totalW+cur.subs.subsW+cur.ins.insW;
+    const pGH=pRes.totalH+pSubs.subsH+pIns.insH,pGW=pRes.totalW+pSubs.subsW+pIns.insW;
+    document.getElementById('compareTitle').textContent=`現在の計算結果　vs　${past.label} との比較`;
+    const rows=[
+      {label:'月々合計',cur:cur.totalMonthly+cur.subs.subsTotal+cur.ins.insTotal,past:pRes.totalMonthly+pSubs.subsTotal+pIns.insTotal},
+      {label:'夫の最終月間負担',cur:curGH,past:pGH},
+      {label:'妻の最終月間負担',cur:curGW,past:pGW},
+      {label:'夫の手取り残額',cur:cur.hIncome-curGH,past:pHI-pGH},
+      {label:'妻の手取り残額',cur:cur.wIncome-curGW,past:pWI-pGW},
+    ];
+    let html='';
+    rows.forEach(r=>{
+      const diff=r.cur-r.past;
+      html+=`<div style="margin-bottom:12px;"><div style="font-size:0.85rem;font-weight:700;color:#555;margin-bottom:6px;">${r.label}</div><div class="compare-grid"><div class="compare-box current"><div class="c-label">現在</div><div class="c-value">${fmt(r.cur)}</div></div><div class="compare-box past"><div class="c-label">${past.label}</div><div class="c-value">${fmt(r.past)}</div></div><div class="compare-box diff"><div class="c-label">差額</div><div class="c-value">${fmtDiff(diff)}</div></div></div></div>`;
+    });
+    document.getElementById('compareContent').innerHTML=html;
+    document.getElementById('compareCard').classList.remove('hidden');
+    switchTab('result');
+    setTimeout(()=>document.getElementById('compareCard').scrollIntoView({behavior:'smooth'}),100);
+  }catch(e){showToast('❌ 比較に失敗しました');}
+}
+function openBulkDeleteModal(){
+  const c=document.querySelectorAll('.history-checkbox:checked');
+  if(c.length===0){showToast('削除する履歴にチェックを入れてください');return;}
+  document.getElementById('modalMsg').textContent=`選択した${c.length}件の履歴を削除します。この操作は元に戻せません。`;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.add('hidden');}
+async function confirmBulkDelete(){
+  const keys=Array.from(document.querySelectorAll('.history-checkbox:checked')).map(cb=>cb.dataset.key);
+  closeModal();
+  try{await Promise.all(keys.map(k=>fbDelete(`${HISTORY_PATH}/${k}`)));showToast(`🗑️ ${keys.length}件の履歴を削除しました`);loadHistoryList();}
+  catch(e){showToast('❌ 削除に失敗しました');}
+}
+function printPDF(){if(!lastCalcResult){showToast('先に計算を実行してください');return;}showToast('印刷ダイアログが開きます。');setTimeout(()=>window.print(),500);}
+function shareLink(){navigator.clipboard.writeText(window.location.href).then(()=>showToast('URLをコピーしました！')).catch(()=>showToast('コピーに失敗しました。'));}
+function showToast(msg,duration=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),duration);}
+
+async function init(){
+  loadOrders();applyOrders();switchTab('input');setSyncStatus('wait');
+  try{
+    const masterDb=await fbGet(MASTER_PATH);
+    if(masterDb){
+      if(masterDb.accounts) masterData.accounts=normalizeAccounts(masterDb.accounts);
+      if(masterDb.insTypes) masterData.insTypes=masterDb.insTypes;
+      if(masterDb.insCompanies) masterData.insCompanies=masterDb.insCompanies;
+      if(masterDb.ratioPresets) masterData.ratioPresets=masterDb.ratioPresets;
+    }
+  }catch(e){}
+  renderMasterLists();
+  try{const pd=await fbGet(PAID_PATH);if(pd)paidData=pd;}catch(e){}
+  try{
+    const data=await fbGet(CURRENT_PATH);
+    if(data&&data.rows){applyData(data);}else{applyData({rows:DEFAULT_ITEMS,subs:DEFAULT_SUBS,ins:DEFAULT_INS});}
+    tryAutoCalculate();setSyncStatus('ok');
+  }catch(e){
+    setSyncStatus('error');
+    const saved=localStorage.getItem('kakeiboDataBackup');
+    if(saved){try{applyData(JSON.parse(saved));tryAutoCalculate();}catch(_){applyData({rows:DEFAULT_ITEMS,subs:DEFAULT_SUBS,ins:DEFAULT_INS});}}
+    else{applyData({rows:DEFAULT_ITEMS,subs:DEFAULT_SUBS,ins:DEFAULT_INS});}
+  }
+  fbListenSSE(MASTER_PATH,event=>{
+    if(!event||!event.data)return;
+    const d=event.data;
+    if(d.accounts)masterData.accounts=normalizeAccounts(d.accounts);
+    if(d.insTypes)masterData.insTypes=d.insTypes;
+    if(d.insCompanies)masterData.insCompanies=d.insCompanies;
+    if(d.ratioPresets)masterData.ratioPresets=d.ratioPresets;
+    renderMasterLists();refreshAllDropdowns();
+  });
+  fbListenSSE(CURRENT_PATH,event=>{
+    if(!event||!event.data||!event.data.rows)return;
+    applyData(event.data);tryAutoCalculate();setSyncStatus('ok');
+  });
+  fbListenSSE(PAID_PATH,event=>{
+    if(!event||!event.data)return;
+    paidData=event.data;
+    if(lastCalcResult)calculate(false);
+  });
+  loadHistoryList();
+}
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
