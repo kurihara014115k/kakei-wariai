@@ -68,8 +68,9 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .sub-amount-wrap input { border-color:#d9cfff; }
 .ins-amount-wrap input { border-color:#b2dfdb; }
 .exp-amount-wrap span, .sub-amount-wrap span, .ins-amount-wrap span { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#999; font-size:0.82rem; }
-.exp-cycle,.exp-mode,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel { padding:8px 10px; border:2px solid #e0e0f0; border-radius:8px; font-size:0.83rem; min-width:160px; outline:none; background:white; }
+.exp-cycle,.exp-mode,.sub-cycle,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel { padding:8px 10px; border:2px solid #e0e0f0; border-radius:8px; font-size:0.83rem; min-width:160px; outline:none; background:white; }
 .exp-cycle { color:#0056b3; font-weight:600; }
+.sub-cycle { border-color:#d9cfff; color:#5e35b1; font-weight:600; }
 .sub-payer { border-color:#d9cfff; color:#5e35b1; font-weight:600; }
 .ins-payer-sel, .ins-type-sel, .ins-company-sel { border-color:#b2dfdb; }
 .ins-payer-sel { color:#00695c; font-weight:600; }
@@ -141,22 +142,25 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .sub-detail-toggle  { background:#f3f0ff; color:#5e35b1; border-color:#d9cfff; }
 .ins-detail-toggle  { background:#e0f2f1; color:#00695c; border-color:#b2dfdb; }
 .acct-detail-toggle { background:#fff8e1; color:#e65100; border-color:#ffe082; }
-.acct-list { display:flex; flex-direction:column; gap:16px; }
-.acct-item { background:#fffdf5; border:1px solid #ffe082; border-radius:12px; padding:16px; transition:all .3s; }
-.acct-item.paid { background:linear-gradient(135deg,#e8f5e9,#f1f8e9); border-color:#a5d6a7; }
-.acct-item-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
-.acct-name { font-weight:800; color:#e65100; font-size:1rem; }
-.acct-item.paid .acct-name { color:#2e7d32; }
-.acct-total-badge { background:linear-gradient(135deg,#f57f17,#e65100); color:white; border-radius:20px; padding:4px 14px; font-size:0.85rem; font-weight:700; }
-.acct-item.paid .acct-total-badge { background:linear-gradient(135deg,#43a047,#2e7d32); }
-.paid-badge { display:inline-block; background:linear-gradient(135deg,#43a047,#2e7d32); color:white; border-radius:20px; padding:2px 10px; font-size:0.7rem; font-weight:700; margin-left:8px; vertical-align:middle; }
+
+/* Transfer Summary Styles */
+.transfer-person-block { margin-bottom: 22px; }
+.transfer-person-block:last-child { margin-bottom: 0; }
+.transfer-person-title { font-size: 1rem; font-weight: 800; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; }
+.transfer-person-title.husband { background: linear-gradient(135deg,#667eea22,#764ba222); color: #5a6fd6; border-left: 4px solid #667eea; }
+.transfer-person-title.wife    { background: linear-gradient(135deg,#f093fb22,#f5576c22); color: #e0457a; border-left: 4px solid #f5576c; }
+.transfer-period-block { margin-bottom: 16px; padding-left: 10px; border-left: 2px dashed #e0e0f0; }
+.transfer-period-title { display:flex; justify-content:space-between; font-size:0.9rem; font-weight:700; color:#555; margin-bottom:8px; padding-bottom:4px; border-bottom:1px dashed #ddd; }
+.transfer-acct-item { background:#fffdf5; border:1px solid #ffe082; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+.transfer-acct-item.paid { background:linear-gradient(135deg,#e8f5e9,#f1f8e9); border-color:#a5d6a7; }
+.transfer-acct-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.transfer-acct-name { font-weight:700; color:#e65100; font-size:0.92rem; }
+.transfer-acct-item.paid .transfer-acct-name { color:#2e7d32; }
+.transfer-acct-amount { font-size:1.05rem; font-weight:800; }
 .acct-check-wrap { display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:700; color:#555; background:white; padding:8px 12px; border-radius:8px; border:1px solid #eee; cursor:pointer; margin-bottom:10px; }
-.acct-item.paid .acct-check-wrap { color:#2e7d32; border-color:#a5d6a7; }
+.transfer-acct-item.paid .acct-check-wrap { color:#2e7d32; border-color:#a5d6a7; }
 .acct-check-wrap input { width:18px; height:18px; cursor:pointer; }
-.acct-breakdown { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
-.acct-breakdown-item { background:white; border-radius:8px; padding:8px 12px; font-size:0.82rem; }
-.acct-breakdown-item .ab-label { color:#888; margin-bottom:2px; }
-.acct-breakdown-item .ab-value { font-weight:700; color:#333; }
+
 .history-list { display:flex; flex-direction:column; gap:12px; }
 .history-item { background:white; border:1px solid #e5e5f5; border-radius:12px; padding:14px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .history-item-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
@@ -225,6 +229,26 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .history-title-row input:focus { border-color:#667eea; }
 .no-result-msg { text-align:center; color:rgba(255,255,255,0.85); padding:60px 20px; font-size:1rem; }
 .no-result-msg .icon { font-size:3rem; margin-bottom:12px; }
+/* 🔁 Nヶ月ごとの一括払い・💰貯蓄投資 用の追加スタイル */
+.periodic-result-card { border-top:4px solid #7c4dff; }
+.periodic-result-card h2 { color:#5e35b1; }
+.badge-periodic { background:linear-gradient(135deg,#7c4dff,#5e35b1); }
+.sav-result-card { border-top:4px solid #2e7d32; }
+.sav-result-card h2 { color:#2e7d32; }
+.badge-sav { background:linear-gradient(135deg,#43a047,#2e7d32); }
+.badge-include { background:#2e7d32; }
+.badge-exclude { background:#9e9e9e; }
+.sav-row { background:#e8f5e9; border:1px solid #a5d6a7; border-radius:12px; padding:14px; margin-bottom:12px; }
+.sav-row-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.sav-name { flex:1; min-width:120px; font-weight:700; font-size:0.95rem; border:none; background:transparent; border-bottom:2px dashed transparent; padding:4px 2px; color:#444; }
+.sav-name:focus { outline:none; border-bottom-color:#2e7d32; }
+.sav-row-body { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.sav-amount-wrap { position:relative; flex:1; min-width:140px; }
+.sav-amount-wrap input { width:100%; padding:8px 32px 8px 10px; border:2px solid #a5d6a7; border-radius:8px; font-size:0.92rem; outline:none; }
+.sav-amount-wrap span { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#999; font-size:0.82rem; }
+.sav-cycle,.sav-payer-sel,.sav-account-sel,.sav-include-sel { padding:8px 10px; border:2px solid #a5d6a7; border-radius:8px; font-size:0.83rem; min-width:150px; outline:none; background:white; }
+.sub-periodic-extra { display:flex; gap:6px; align-items:center; font-size:0.8rem; color:#5e35b1; background:#f3f0ff; border:1px dashed #d9cfff; border-radius:8px; padding:6px 10px; }
+.sub-periodic-extra select { padding:4px 6px; border:1px solid #d9cfff; border-radius:6px; font-size:0.8rem; }
 @media print {
   body { background:white !important; }
   .tab-bar { display:none !important; }
@@ -235,7 +259,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 }
 @media (max-width:640px) {
   .income-grid,.summary-grid,.compare-grid,.tri-grid,.acct-breakdown,.history-summary { grid-template-columns:1fr; }
-  .exp-cycle,.exp-mode,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel { min-width:100%; }
+  .exp-cycle,.exp-mode,.sub-cycle,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel { min-width:100%; }
   h1 { font-size:1.4rem; }
 }
 </style>
@@ -243,7 +267,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 <body>
 <div class="container">
   <h1>💰 夫婦家計割合計算アプリ</h1>
-  <p class="subtitle">並び替え・複数割合設定・項目別振込チェック・履歴詳細 対応版</p>
+  <p class="subtitle">並び替え・複数割合・サブスク年払い（一括）対応版</p>
   <div class="tab-bar" id="tabBar">
     <button class="tab-btn active" id="tabBtn-input"    onclick="switchTab('input')">📋 入力</button>
     <button class="tab-btn"        id="tabBtn-result"   onclick="switchTab('result')">📊 結果</button>
@@ -270,6 +294,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       </div>
       <div class="card" id="inp-sub">
         <h2>📱 サブスクリプション管理</h2>
+        <p style="font-size:0.8rem;color:#888;margin-bottom:10px;">月払いの場合は月額を、年払いの場合は年額を入力してください。年払いを選ぶと月々の家計からは除外され、結果画面の「年一括払い」セクションに合算されます。</p>
         <div id="subList"></div>
         <button class="btn-add-sub" onclick="addNewSubRow()">＋ サブスクを追加する</button>
       </div>
@@ -277,6 +302,12 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
         <h2>🛡️ 保険管理</h2>
         <div id="insList"></div>
         <button class="btn-add-ins" onclick="addNewInsRow()">＋ 保険を追加する</button>
+      </div>
+            <div class="card" id="inp-sav">
+        <h2>💰 貯蓄・投資管理</h2>
+        <p style="font-size:0.8rem;color:#888;margin-bottom:10px;">iDeCo・NISAなどの貯蓄・投資を管理します。「最終負担に含める」を選んだ項目だけが「👫 夫婦の最終月間負担」に加算されます。含めない項目も振込サマリには表示され、振込チェックができます。</p>
+        <div id="savList"></div>
+        <button class="btn-add-ins" style="border-color:#2e7d3288;background:#2e7d3211;color:#2e7d32;" onclick="addNewSavRow()">＋ 貯蓄・投資を追加する</button>
       </div>
       <div class="card" id="inp-exp">
         <h2>📋 費用項目</h2>
@@ -297,7 +328,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
           <div class="btn-row" style="margin-bottom:16px;"><button class="btn-pdf" onclick="printPDF()">🖨️ PDFとして保存・印刷する</button></div>
           <h3 style="font-size:0.95rem;color:#555;margin-bottom:8px;">夫婦の月間負担比率</h3>
           <div class="chart-container"><canvas id="pieChart"></canvas></div>
-          <h3 style="font-size:0.95rem;color:#555;margin-bottom:8px;">項目別の月々の負担額（月額換算分）</h3>
+          <h3 style="font-size:0.95rem;color:#555;margin-bottom:8px;">項目別の月々の負担額（月額）</h3>
           <div class="chart-bar-container"><canvas id="barChart"></canvas></div>
         </div>
         <div class="card" id="res-summary">
@@ -308,23 +339,24 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
           </div>
         </div>
         <div class="card" id="res-monthly">
-          <h2>📅 月々の家計（固定費・サブスク・保険 すべて込み）</h2>
+          <h2>📅 月々の家計（固定費・月額サブスク・保険 すべて込み）</h2>
           <p style="font-size:0.8rem;color:#888;margin-bottom:10px;">振込先口座を確認し、振り込んだら「夫済」「妻済」にチェックを入れてください。夫婦間で共有され、月が変わると自動リセットされます。</p>
           <div style="overflow-x:auto;"><table class="result-table" id="monthlyTable">
-            <thead><tr><th>費用項目</th><th>月額換算</th><th>振込先口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead>
+            <thead><tr><th>費用項目</th><th>月額</th><th>振込先口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead>
             <tbody id="resultBody"></tbody>
-            <tfoot><tr class="total-row"><td>月間合計（月額換算）</td><td id="totalMonthly"></td><td>—</td><td id="totalHusband" class="husband-amount"></td><td id="totalWife" class="wife-amount"></td></tr></tfoot>
+            <tfoot><tr class="total-row"><td>月間合計</td><td id="totalMonthly"></td><td>—</td><td id="totalHusband" class="husband-amount"></td><td id="totalWife" class="wife-amount"></td></tr></tfoot>
           </table></div>
         </div>
         <div class="result-section-card sub-result-card hidden" id="res-sub">
           <h2>📱 サブスク集計</h2>
           <div class="tri-grid">
-            <div class="tri-box total"><div class="t-label">サブスク総額</div><div class="t-value" id="subGrandTotal">¥0</div></div>
-            <div class="tri-box husband"><div class="t-label">夫の負担</div><div class="t-value husband-amount" id="subHusbandTotal">¥0</div></div>
-            <div class="tri-box wife"><div class="t-label">妻の負担</div><div class="t-value wife-amount" id="subWifeTotal">¥0</div></div>
+            <div class="tri-box total"><div class="t-label">月額サブスク合計</div><div class="t-value" id="subGrandTotal">¥0</div></div>
+            <div class="tri-box husband"><div class="t-label">夫の負担(月額)</div><div class="t-value husband-amount" id="subHusbandTotal">¥0</div></div>
+            <div class="tri-box wife"><div class="t-label">妻の負担(月額)</div><div class="t-value wife-amount" id="subWifeTotal">¥0</div></div>
           </div>
+          <div id="subYearlySummary" style="text-align:right; font-size:0.85rem; color:#5e35b1; margin-bottom:12px; font-weight:bold;"></div>
           <button class="detail-toggle sub-detail-toggle" onclick="toggleDetail('subDetailSection',this)">📋 サブスク内訳を表示する ▼</button>
-          <div id="subDetailSection" class="hidden" style="overflow-x:auto;"><table class="result-table sub-table"><thead><tr><th>サービス名</th><th>月額</th><th>支払い方法</th><th>口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="subDetailBody"></tbody></table></div>
+          <div id="subDetailSection" class="hidden" style="overflow-x:auto;"><table class="result-table sub-table"><thead><tr><th>サービス名</th><th>支払いサイクル</th><th>金額</th><th>支払い方法</th><th>口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="subDetailBody"></tbody></table></div>
         </div>
         <div class="result-section-card ins-result-card hidden" id="res-ins">
           <h2>🛡️ 保険集計</h2>
@@ -336,15 +368,39 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
           <button class="detail-toggle ins-detail-toggle" onclick="toggleDetail('insDetailSection',this)">🛡️ 保険内訳を表示する ▼</button>
           <div id="insDetailSection" class="hidden" style="overflow-x:auto;"><table class="result-table ins-table"><thead><tr><th>保険名</th><th>種別</th><th>保険会社</th><th>月額</th><th>負担方法</th><th>口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="insDetailBody"></tbody></table></div>
         </div>
-        <div class="result-section-card acct-result-card hidden" id="res-acct">
-          <h2>🏦 引き落とし口座別の必要入金額・振込チェック</h2>
-          <p style="font-size:0.82rem;color:#666;margin-bottom:12px;">口座単位でまとめて振込完了をチェックできます。夫婦間で共有され、翌月になると自動的に未振込に戻ります。</p>
-          <div class="acct-list" id="acctList"></div>
+        
+                <div class="result-section-card sav-result-card hidden" id="res-sav">
+          <h2>💰 貯蓄・投資集計（毎月分）</h2>
+          <div class="tri-grid">
+            <div class="tri-box total"><div class="t-label">毎月分合計（全項目）</div><div class="t-value" id="savGrandTotal">¥0</div></div>
+            <div class="tri-box husband"><div class="t-label">夫の負担（全項目）</div><div class="t-value husband-amount" id="savHusbandTotal">¥0</div></div>
+            <div class="tri-box wife"><div class="t-label">妻の負担（全項目）</div><div class="t-value wife-amount" id="savWifeTotal">¥0</div></div>
+          </div>
+          <div id="savIncludedSummary" style="text-align:right;font-size:0.85rem;color:#2e7d32;margin-bottom:12px;font-weight:bold;"></div>
+          <button class="detail-toggle" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;" onclick="toggleDetail('savDetailSection',this)">💰 貯蓄・投資の内訳を表示する ▼</button>
+          <div id="savDetailSection" class="hidden" style="overflow-x:auto;"><table class="result-table"><thead><tr><th>名称</th><th>金額</th><th>最終負担への反映</th><th>負担方法</th><th>口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="savDetailBody"></tbody></table></div>
+          <p class="note">※ 夏・冬ボーナス払い・年一括払いの貯蓄・投資は、下部の「🌻⛄📆 ボーナス・年一括払い」に含まれます。</p>
         </div>
+
+        <div class="result-section-card periodic-result-card hidden" id="res-periodic">
+          <h2>🔁 Nヶ月ごとの一括払い（今月分）</h2>
+          <p style="font-size:0.82rem;color:#666;margin-bottom:14px;">今月が支払月にあたるサブスクだけを表示しています。支払月でない場合はここには何も表示されません。</p>
+          <div style="overflow-x:auto;"><table class="result-table"><thead><tr><th>サービス名</th><th>金額</th><th>口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead>
+          <tbody id="periodicSubBody"></tbody>
+          <tfoot><tr class="total-row"><td>今月の一括合計</td><td id="periodicSubTotal"></td><td>—</td><td id="periodicSubH" class="husband-amount"></td><td id="periodicSubW" class="wife-amount"></td></tr></tfoot>
+          </table></div>
+        </div>
+
+        <div class="result-section-card acct-result-card hidden" id="res-acct">
+          <h2>💸 夫婦別・振込サマリ（期間別・口座別）</h2>
+          <p style="font-size:0.82rem;color:#666;margin-bottom:14px;">夫・妻それぞれが、どの期間にどの口座へいくら振り込む必要があるかをまとめています。振込済みになったらチェックを入れてください（夫婦間で共有・翌月自動リセット）。「明細を表示する」を押すと内訳の項目を確認できます。</p>
+          <div id="transferSummaryBody"></div>
+        </div>
+
         <div class="card" id="res-bonus">
           <div id="bonusSummerSection" class="hidden"><h3 style="font-size:0.95rem;color:#e65100;margin-bottom:8px;">🌻 夏のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusSummerBody"></tbody><tfoot><tr class="total-row"><td>夏合計</td><td id="bonusSummerTotal"></td><td id="bonusSummerH" class="husband-amount"></td><td id="bonusSummerW" class="wife-amount"></td></tr></tfoot></table></div></div>
           <div id="bonusWinterSection" class="hidden"><h3 style="font-size:0.95rem;color:#1565c0;margin-bottom:8px;">⛄ 冬のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusWinterBody"></tbody><tfoot><tr class="total-row"><td>冬合計</td><td id="bonusWinterTotal"></td><td id="bonusWinterH" class="husband-amount"></td><td id="bonusWinterW" class="wife-amount"></td></tr></tfoot></table></div></div>
-          <div id="yearlyLumpSection" class="hidden"><h3 style="font-size:0.95rem;color:#e65100;margin-bottom:8px;">📆 年1回・一括払い</h3><div style="overflow-x:auto;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="yearlyLumpBody"></tbody><tfoot><tr class="total-row"><td>一括合計</td><td id="yearlyLumpTotal"></td><td id="yearlyLumpH" class="husband-amount"></td><td id="yearlyLumpW" class="wife-amount"></td></tr></tfoot></table></div></div>
+          <div id="yearlyLumpSection" class="hidden"><h3 style="font-size:0.95rem;color:#e65100;margin-bottom:8px;">📆 年1回・一括払い（年払いサブスク含む）</h3><div style="overflow-x:auto;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="yearlyLumpBody"></tbody><tfoot><tr class="total-row"><td>一括合計</td><td id="yearlyLumpTotal"></td><td id="yearlyLumpH" class="husband-amount"></td><td id="yearlyLumpW" class="wife-amount"></td></tr></tfoot></table></div></div>
           <p class="note">※ ボーナス払い・一括払いは月々の家計とは別枠です。</p>
         </div>
       </div>
@@ -447,7 +503,7 @@ const MASTER_PATH  = 'kakeibo/master';
 const PAID_PATH    = 'kakeibo/paidStatus';
 
 let pieChart=null, barChart=null;
-let autoSaveTimer=null, lastCalcResult=null, lastAccts=[];
+let autoSaveTimer=null, lastCalcResult=null;
 let paidData={};
 let masterData={
   accounts:    ['共同口座','夫の口座','妻の口座'],
@@ -457,9 +513,6 @@ let masterData={
 };
 let masterLoaded=false;
 
-/* 「60:40」という内部保存形式を「夫60% : 妻40%」という表示形式に変換する一元化ヘルパー。
-   すべての表示箇所（マスタ一覧・プルダウン・結果バッジ・履歴詳細）でこの関数を通すことで、
-   将来表示形式を変えたい場合もここだけ修正すれば済むようにしている。 */
 function ratioToLabel(r){
   const parts=(r||'').split(':');
   if(parts.length!==2)return r;
@@ -484,10 +537,10 @@ const DEFAULT_ITEMS=[
   {name:'🧊 凍結胚更新料',amount:60000,cycle:'bonus_summer',mode:'auto',hPct:50,account:'妻の口座'},
 ];
 const DEFAULT_SUBS=[
-  {name:'📺 Netflix',amount:1500,payer:'half',account:'共同口座'},
-  {name:'🛒 Amazonプライム',amount:600,payer:'auto',account:'共同口座'},
-  {name:'🎵 Apple Music',amount:1080,payer:'husband',account:'夫の口座'},
-  {name:'☁️ iCloud',amount:400,payer:'wife',account:'妻の口座'},
+  {name:'📺 Netflix',amount:1500,cycle:'monthly',payer:'half',account:'共同口座'},
+  {name:'🛒 Amazonプライム',amount:600,cycle:'monthly',payer:'auto',account:'共同口座'},
+  {name:'🎵 Apple Music',amount:1080,cycle:'monthly',payer:'husband',account:'夫の口座'},
+  {name:'☁️ iCloud',amount:400,cycle:'monthly',payer:'wife',account:'妻の口座'},
 ];
 const DEFAULT_INS=[
   {name:'夫 定期保険',type:'生命保険',company:'〇〇生命',amount:8000,payer:'husband',account:'夫の口座'},
@@ -495,6 +548,8 @@ const DEFAULT_INS=[
   {name:'夫 収入保障保険',type:'収入保障保険',company:'□□損保',amount:2500,payer:'husband',account:'夫の口座'},
   {name:'共同 がん保険',type:'がん保険',company:'◇◇保険',amount:5000,payer:'half',account:'共同口座'},
 ];
+const DEFAULT_SAVS=[]; // 貯蓄・投資はデフォルトでは0件
+
 
 const TAB_DEFS=[{id:'input',label:'📋 入力'},{id:'result',label:'📊 結果'},{id:'history',label:'📅 履歴'},{id:'settings',label:'⚙️ 設定'}];
 const INP_DEFS=[
@@ -502,6 +557,7 @@ const INP_DEFS=[
   {id:'inp-sync',  label:'🔗 同期状態・共有'},
   {id:'inp-sub',   label:'📱 サブスクリプション管理'},
   {id:'inp-ins',   label:'🛡️ 保険管理'},
+  {id:'inp-sav',   label:'💰 貯蓄・投資管理'},
   {id:'inp-exp',   label:'📋 費用項目'},
 ];
 const RES_DEFS=[
@@ -510,7 +566,9 @@ const RES_DEFS=[
   {id:'res-monthly',label:'📅 月々の家計（全込み）'},
   {id:'res-sub',    label:'📱 サブスク集計'},
   {id:'res-ins',    label:'🛡️ 保険集計'},
-  {id:'res-acct',   label:'🏦 口座別・振込チェック'},
+  {id:'res-sav',    label:'💰 貯蓄・投資集計'},
+  {id:'res-periodic',label:'🔁 Nヶ月ごとの一括払い'},
+  {id:'res-acct',   label:'💸 夫婦別・振込サマリ'},
   {id:'res-bonus',  label:'🌻⛄📆 ボーナス・年一括払い'},
 ];
 let tabOrder=TAB_DEFS.map(d=>d.id);
@@ -608,8 +666,6 @@ function resolveHPct(payerOrMode,hRatio,fixedHPct){
   return(map[payerOrMode]!==undefined)?map[payerOrMode]:hRatio*100;
 }
 
-/* payerLabel: プルダウン選択値から人間が読める表示文字列を返す。
-   ratio_60:40 → 「⚖️ 夫60% : 妻40%」のように夫・妻の名目付きで表示する。 */
 function payerLabel(p){
   if(!p)return'—';
   if(p.startsWith('ratio_'))return`⚖️ ${ratioToLabel(p.slice(6))}`;
@@ -737,18 +793,6 @@ async function setPaid(key,checked){
   paidData[mk][key]=checked;
   try{await fbPut(PAID_PATH,paidData);}catch(e){showToast('⚠️ 振込状況の同期に失敗しました');}
 }
-async function togglePaid(accountName,checked){
-  await setPaid(accountName,checked);
-  document.querySelectorAll('.acct-check').forEach(cb=>{
-    if(cb.dataset.acct===accountName){
-      const item=cb.closest('.acct-item');
-      item.classList.toggle('paid',checked);
-      const slot=item.querySelector('.paid-badge-slot');
-      if(slot)slot.innerHTML=checked?'<span class="paid-badge">✅ 振込済</span>':'';
-    }
-  });
-  showToast(checked?`✅ ${accountName}を振込済みにしました`:`↩ ${accountName}を未振込に戻しました`);
-}
 async function toggleItemPaid(itemKey,person,checked,cbEl){
   const paidKey=`item__${itemKey}__${person}`;
   await setPaid(paidKey,checked);
@@ -757,8 +801,28 @@ async function toggleItemPaid(itemKey,person,checked,cbEl){
   showToast(checked?'✅ 振込済みにしました':'↩ 未振込に戻しました');
 }
 
+const TRANSFER_PERIODS = ['monthly','bonus_summer','bonus_winter','yearly_lump'];
+
+function periodLabel(p){
+  return {monthly:'📅 月々', bonus_summer:'🌻 夏ボーナス', bonus_winter:'⛄ 冬ボーナス', yearly_lump:'📆 年一括払い（年払いサブスク含む）',periodic:'🔁 Nヶ月ごとの一括払い（今月分）'}[p] || p;
+}
+
+function transferPaidKey(acct,period,person){
+  return `transfer__${acct}__${period}__${person}`;
+}
+
+async function toggleTransferPaid(acct,period,person,checked,cbEl){
+  await setPaid(transferPaidKey(acct,period,person), checked);
+  const item = cbEl.closest('.transfer-acct-item');
+  if(item) item.classList.toggle('paid', checked);
+  const personLabel = person==='h' ? '夫' : '妻';
+  showToast(checked
+    ? `✅ ${acct}（${periodLabel(period)}・${personLabel}分）を振込済みにしました`
+    : `↩ ${acct}（${periodLabel(period)}・${personLabel}分）を未振込に戻しました`);
+}
+
 function getFormData(){
-  const rows=[],subs=[],ins=[];
+  const rows=[],subs=[],ins=[],savs=[];
   document.querySelectorAll('#expenseList .expense-row').forEach(r=>rows.push({
     name:r.querySelector('.exp-name').value,
     amount:r.querySelector('.exp-amount').value,
@@ -770,6 +834,9 @@ function getFormData(){
   document.querySelectorAll('#subList .sub-row').forEach(r=>subs.push({
     name:r.querySelector('.sub-name').value,
     amount:r.querySelector('.sub-amount').value,
+    cycle:r.querySelector('.sub-cycle').value,
+    interval:r.querySelector('.sub-interval')?r.querySelector('.sub-interval').value:'3',
+    startMonth:r.querySelector('.sub-start-month')?r.querySelector('.sub-start-month').value:'1',
     payer:r.querySelector('.sub-payer').value,
     account:r.querySelector('.sub-account-sel').value||''
   }));
@@ -781,7 +848,15 @@ function getFormData(){
     payer:r.querySelector('.ins-payer-sel').value,
     account:r.querySelector('.ins-account-sel').value||''
   }));
-  return{h:document.getElementById('husbandIncome').value,w:document.getElementById('wifeIncome').value,rows,subs,ins,updatedAt:Date.now()};
+  document.querySelectorAll('#savList .sav-row').forEach(r=>savs.push({
+    name:r.querySelector('.sav-name').value,
+    amount:r.querySelector('.sav-amount').value,
+    cycle:r.querySelector('.sav-cycle').value,
+    includeInFinal:r.querySelector('.sav-include-sel').value,
+    payer:r.querySelector('.sav-payer-sel').value,
+    account:r.querySelector('.sav-account-sel').value||''
+  }));
+  return{h:document.getElementById('husbandIncome').value,w:document.getElementById('wifeIncome').value,rows,subs,ins,savs,updatedAt:Date.now()};
 }
 
 function applyData(data){
@@ -797,6 +872,9 @@ function applyData(data){
   const insArr=(data.ins&&data.ins.length)?data.ins:DEFAULT_INS;
   document.getElementById('insList').innerHTML='';
   insArr.forEach((it,i)=>addInsRow(it,i,insArr.length));
+  const savsArr=(data.savs&&data.savs.length)?data.savs:DEFAULT_SAVS;
+  document.getElementById('savList').innerHTML='';
+  savsArr.forEach((it,i)=>addSavRow(it,i,savsArr.length));
 }
 
 function addRow(data,idx,total){
@@ -847,8 +925,12 @@ function syncPct(inputEl,which){
 }
 
 function addSubRow(data,idx,total){
-  data=data||{name:'',amount:'',payer:'half',account:''};
+  data=data||{name:'',amount:'',cycle:'monthly',interval:'3',startMonth:'1',payer:'half',account:''};
+  const subCycle=data.cycle||'monthly';
   const isFirst=idx===0,isLast=idx===(total-1);
+  const amountPlaceholder = subCycle==='yearly' ? '年額（円）' : (subCycle==='periodic' ? '1回分の支払額（円）' : '月額（円）');
+  const interval = data.interval || '3';
+  const startMonth = data.startMonth || '1';
   const div=document.createElement('div');div.className='sub-row';
   div.innerHTML=`
     <div class="sub-row-header">
@@ -860,14 +942,42 @@ function addSubRow(data,idx,total){
       </div>
     </div>
     <div class="sub-row-body">
-      <div class="sub-amount-wrap"><input type="number" class="sub-amount" min="0" value="${data.amount||''}" placeholder="月額"><span>円</span></div>
+      <div class="sub-amount-wrap"><input type="number" class="sub-amount" min="0" value="${data.amount||''}" placeholder="${amountPlaceholder}"><span>円</span></div>
+      <select class="sub-cycle" onchange="updateSubAmountPlaceholder(this)">
+        <option value="monthly" ${subCycle==='monthly'?'selected':''}>📅 毎月払い</option>
+        <option value="yearly" ${subCycle==='yearly'?'selected':''}>📆 年1回（一括・月額には含めない）</option>
+        <option value="periodic" ${subCycle==='periodic'?'selected':''}>🔁 Nヶ月ごとの定期払い（一括・月額には含めない）</option>
+      </select>
+      <div class="sub-periodic-extra ${subCycle==='periodic'?'':'hidden'}">
+        <span>頻度</span>
+        <select class="sub-interval">
+          <option value="2" ${interval==='2'?'selected':''}>2ヶ月ごと</option>
+          <option value="3" ${interval==='3'?'selected':''}>3ヶ月ごと</option>
+          <option value="4" ${interval==='4'?'selected':''}>4ヶ月ごと</option>
+          <option value="6" ${interval==='6'?'selected':''}>6ヶ月ごと</option>
+        </select>
+        <span>起点月</span>
+        <select class="sub-start-month">
+          ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}" ${String(startMonth)===String(m)?'selected':''}>${m}月</option>`).join('')}
+        </select>
+      </div>
       <select class="sub-payer">${buildPayerOptions(data.payer)}</select>
       <select class="sub-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
     </div>`;
   document.getElementById('subList').appendChild(div);
 }
+
+function updateSubAmountPlaceholder(selectEl){
+  const body=selectEl.closest('.sub-row-body');
+  const input=body.querySelector('.sub-amount');
+  const extra=body.querySelector('.sub-periodic-extra');
+  const v=selectEl.value;
+  input.placeholder = v==='yearly' ? '年額（円）' : (v==='periodic' ? '1回分の支払額（円）' : '月額（円）');
+  if(extra) extra.classList.toggle('hidden', v!=='periodic');
+}
+
 function removeSubRow(btn){const data=getFormData();const row=btn.closest('.sub-row');const idx=Array.from(document.querySelectorAll('#subList .sub-row')).indexOf(row);data.subs.splice(idx,1);applyData(data);scheduleAutoSave();}
-function addNewSubRow(){const data=getFormData();data.subs.push({name:'',amount:'',payer:'half',account:''});applyData(data);scheduleAutoSave();}
+function addNewSubRow(){const data=getFormData();data.subs.push({name:'',amount:'',cycle:'monthly',payer:'half',account:''});applyData(data);scheduleAutoSave();}
 
 function addInsRow(data,idx,total){
   data=data||{name:'',type:'',company:'',amount:'',payer:'husband',account:''};
@@ -893,6 +1003,39 @@ function addInsRow(data,idx,total){
 }
 function removeInsRow(btn){const data=getFormData();const row=btn.closest('.ins-row');const idx=Array.from(document.querySelectorAll('#insList .ins-row')).indexOf(row);data.ins.splice(idx,1);applyData(data);scheduleAutoSave();}
 function addNewInsRow(){const data=getFormData();data.ins.push({name:'',type:'',company:'',amount:'',payer:'husband',account:''});applyData(data);scheduleAutoSave();}
+function addSavRow(data,idx,total){
+  data=data||{name:'',amount:'',cycle:'monthly',includeInFinal:'false',payer:'husband',account:''};
+  const isFirst=idx===0,isLast=idx===(total-1);
+  const div=document.createElement('div');div.className='sav-row';
+  div.innerHTML=`
+    <div class="sav-row-header">
+      <input type="text" class="sav-name" value="${data.name||''}" placeholder="貯蓄・投資名（例: iDeCo）">
+      <div class="row-controls">
+        <button class="btn-move-row" onclick="moveItemRow('savs',${idx},-1)" ${isFirst?'disabled':''}>↑</button>
+        <button class="btn-move-row" onclick="moveItemRow('savs',${idx},1)" ${isLast?'disabled':''}>↓</button>
+        <button class="btn-del" onclick="removeSavRow(this)">✕</button>
+      </div>
+    </div>
+    <div class="sav-row-body">
+      <div class="sav-amount-wrap"><input type="number" class="sav-amount" min="0" value="${data.amount||''}" placeholder="金額"><span>円</span></div>
+      <select class="sav-cycle">
+        <option value="monthly" ${data.cycle==='monthly'?'selected':''}>📅 毎月</option>
+        <option value="bonus_summer" ${data.cycle==='bonus_summer'?'selected':''}>🌻 夏ボーナス</option>
+        <option value="bonus_winter" ${data.cycle==='bonus_winter'?'selected':''}>⛄ 冬ボーナス</option>
+        <option value="yearly_lump" ${data.cycle==='yearly_lump'?'selected':''}>📆 年1回・一括</option>
+      </select>
+      <select class="sav-include-sel">
+        <option value="false" ${data.includeInFinal!=='true'?'selected':''}>最終負担に含めない</option>
+        <option value="true" ${data.includeInFinal==='true'?'selected':''}>最終負担に含める</option>
+      </select>
+      <select class="sav-payer-sel">${buildPayerOptions(data.payer)}</select>
+      <select class="sav-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+    </div>`;
+  document.getElementById('savList').appendChild(div);
+}
+function removeSavRow(btn){const data=getFormData();const row=btn.closest('.sav-row');const idx=Array.from(document.querySelectorAll('#savList .sav-row')).indexOf(row);data.savs.splice(idx,1);applyData(data);scheduleAutoSave();}
+function addNewSavRow(){const data=getFormData();data.savs.push({name:'',amount:'',cycle:'monthly',includeInFinal:'false',payer:'husband',account:''});applyData(data);scheduleAutoSave();}
+
 
 function moveItemRow(type,idx,dir){
   const data=getFormData();const arr=data[type];const ni=idx+dir;
@@ -908,8 +1051,9 @@ async function pushToFirebase(){
   try{await fbPut(CURRENT_PATH,data);setSyncStatus('saved');document.getElementById('saveStatus').textContent='💾 '+new Date().toLocaleTimeString('ja-JP')+' に自動保存しました';}
   catch(e){setSyncStatus('error');document.getElementById('saveStatus').textContent='⚠️ 同期に失敗しました（この端末には保存済みです）';}
 }
-document.addEventListener('input',e=>{if(e.target.matches('.exp-name,.exp-amount,.exp-h-pct,.exp-w-pct,.sub-name,.sub-amount,.ins-name,.ins-amount,#husbandIncome,#wifeIncome'))scheduleAutoSave();});
-document.addEventListener('change',e=>{if(e.target.matches('.exp-cycle,.exp-mode,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel'))scheduleAutoSave();});
+document.addEventListener('input',e=>{if(e.target.matches('.exp-name,.exp-amount,.exp-h-pct,.exp-w-pct,.sub-name,.sub-amount,.ins-name,.ins-amount,.sav-name,.sav-amount,#husbandIncome,#wifeIncome'))scheduleAutoSave();});
+document.addEventListener('change',e=>{if(e.target.matches('.exp-cycle,.exp-mode,.sub-cycle,.sub-payer,.sub-interval,.sub-start-month,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel,.sav-cycle,.sav-payer-sel,.sav-account-sel,.sav-include-sel'))scheduleAutoSave();});
+
 
 function tryAutoCalculate(){const h=parseFloat(document.getElementById('husbandIncome').value)||0;const w=parseFloat(document.getElementById('wifeIncome').value)||0;if(h+w>0)calculate(false);}
 
@@ -940,17 +1084,36 @@ function calcRatios(hIncome,wIncome,rows){
   });
   return{hRatio,totalMonthly,totalH,totalW,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
 }
+
 function calcSubs(subsData,hRatio){
-  let subsTotal=0,subsH=0,subsW=0;const details=[];
+  let mTotal=0,mH=0,mW=0, yTotal=0,yH=0,yW=0, pTotal=0,pH=0,pW=0;
+  const mDetails=[], yDetails=[], pDetails=[];
+  const now=new Date();
+  const currentMonth=now.getMonth()+1;
   (subsData||[]).forEach(s=>{
-    const amount=parseFloat(s.amount)||0;if(amount<=0)return;
+    const rawAmount=parseFloat(s.amount)||0;if(rawAmount<=0)return;
+    const cycle=s.cycle||'monthly';
     const hPct=resolveHPct(s.payer,hRatio,50);
-    const hVal=amount*hPct/100,wVal=amount*(100-hPct)/100;
-    subsTotal+=amount;subsH+=hVal;subsW+=wVal;
-    details.push({name:s.name||'（無題）',amount,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
+    const hVal=rawAmount*hPct/100, wVal=rawAmount*(100-hPct)/100;
+    if(cycle==='yearly'){
+      yTotal+=rawAmount; yH+=hVal; yW+=wVal;
+      yDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
+    }else if(cycle==='periodic'){
+      const interval=parseInt(s.interval,10)||3;
+      const startMonth=parseInt(s.startMonth,10)||1;
+      const diff=(currentMonth-startMonth+12)%12;
+      const isPayMonth=(diff%interval===0);
+      if(!isPayMonth) return; // 支払月でなければ完全に無視（表示・集計に一切含めない）
+      pTotal+=rawAmount; pH+=hVal; pW+=wVal;
+      pDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,interval,startMonth,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
+    }else{
+      mTotal+=rawAmount; mH+=hVal; mW+=wVal;
+      mDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
+    }
   });
-  return{subsTotal,subsH,subsW,details};
+  return{mTotal,mH,mW,yTotal,yH,yW,pTotal,pH,pW,mDetails,yDetails,pDetails};
 }
+
 function calcIns(insData,hRatio){
   let insTotal=0,insH=0,insW=0;const details=[];
   (insData||[]).forEach(i=>{
@@ -962,22 +1125,92 @@ function calcIns(insData,hRatio){
   });
   return{insTotal,insH,insW,details};
 }
-function calcAccounts(monthlyItems,summerItems,winterItems,lumpItems,subDetails,insDetails){
-  const map={};
-  function add(account,name,amount,hVal,wVal,category){
-    if(!account)return;
-    if(!map[account])map[account]={name:account,total:0,hTotal:0,wTotal:0,items:[]};
-    map[account].total+=amount;map[account].hTotal+=hVal;map[account].wTotal+=wVal;
-    map[account].items.push({name,amount,hVal,wVal,category});
-  }
-  monthlyItems.forEach(i=>add(i.account,i.name,i.monthly,i.hM,i.wM,i.cycle==='yearly'?'📅年額÷12':'📅毎月'));
-  summerItems.forEach(i=>add(i.account,i.name,i.amount,i.hVal,i.wVal,'🌻夏ボーナス'));
-  winterItems.forEach(i=>add(i.account,i.name,i.amount,i.hVal,i.wVal,'⛄冬ボーナス'));
-  lumpItems.forEach(i=>add(i.account,i.name,i.amount,i.hY,i.wY,'📆年一括'));
-  subDetails.forEach(s=>add(s.account,s.name,s.amount,s.hVal,s.wVal,'📱サブスク'));
-  insDetails.forEach(i=>add(i.account,i.name,i.amount,i.hVal,i.wVal,'🛡️保険'));
-  return Object.values(map).sort((a,b)=>b.total-a.total);
+function calcSavs(hRatio,savsData){
+  let mTotal=0,mH=0,mW=0;          // 最終負担に反映される分（includeInFinal=true の毎月項目のみ）
+  let mTotalAll=0,mHAll=0,mWAll=0; // 毎月項目の全体合計（含める/含めない問わず）
+  let sTotal=0,sH=0,sW=0, wnTotal=0,wnH=0,wnW=0, yTotal=0,yH=0,yW=0;
+  const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[];
+  (savsData||[]).forEach(s=>{
+    const amount=parseFloat(s.amount)||0;if(amount<=0)return;
+    const hPct=resolveHPct(s.payer,hRatio,50);
+    const hVal=amount*hPct/100, wVal=amount*(100-hPct)/100;
+    const include=(s.includeInFinal==='true');
+    const item={name:s.name||'（無題）',amount,hVal,wVal,include,payer:s.payer,account:s.account||'',isSaving:true};
+    if(s.cycle==='bonus_summer'){sTotal+=amount;sH+=hVal;sW+=wVal;summerItems.push(item);return;}
+    if(s.cycle==='bonus_winter'){wnTotal+=amount;wnH+=hVal;wnW+=wVal;winterItems.push(item);return;}
+    if(s.cycle==='yearly_lump'){yTotal+=amount;yH+=hVal;yW+=wVal;lumpItems.push(item);return;}
+    mTotalAll+=amount;mHAll+=hVal;mWAll+=wVal;
+    if(include){mTotal+=amount;mH+=hVal;mW+=wVal;}
+    monthlyItems.push(item);
+  });
+  return{mTotal,mH,mW,mTotalAll,mHAll,mWAll,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
 }
+
+
+function calcPersonPeriodAccounts(res, subs, ins, savs){
+  const result = {
+    h: { monthly:{}, bonus_summer:{}, bonus_winter:{}, yearly_lump:{}, periodic:{} },
+    w: { monthly:{}, bonus_summer:{}, bonus_winter:{}, yearly_lump:{}, periodic:{} }
+  };
+  function add(person, period, acct, name, val, category){
+    if(!acct || val<=0) return;
+    const map = result[person][period];
+    if(!map[acct]) map[acct] = { total:0, items:[] };
+    map[acct].total += val;
+    map[acct].items.push({ name, val, category });
+  }
+  res.monthlyItems.forEach(i=>{
+    const cat = i.cycle==='yearly' ? '📅年額÷12' : '📅毎月';
+    add('h','monthly',i.account,i.name,i.hM,cat);
+    add('w','monthly',i.account,i.name,i.wM,cat);
+  });
+  res.summerItems.forEach(i=>{
+    add('h','bonus_summer',i.account,i.name,i.hVal,'🌻夏ボーナス');
+    add('w','bonus_summer',i.account,i.name,i.wVal,'🌻夏ボーナス');
+  });
+  res.winterItems.forEach(i=>{
+    add('h','bonus_winter',i.account,i.name,i.hVal,'⛄冬ボーナス');
+    add('w','bonus_winter',i.account,i.name,i.wVal,'⛄冬ボーナス');
+  });
+  res.lumpItems.forEach(i=>{
+    add('h','yearly_lump',i.account,i.name,i.hY,'📆年一括');
+    add('w','yearly_lump',i.account,i.name,i.wY,'📆年一括');
+  });
+  subs.mDetails.forEach(s=>{
+    add('h','monthly',s.account,s.name,s.hVal,'📱サブスク(月)');
+    add('w','monthly',s.account,s.name,s.wVal,'📱サブスク(月)');
+  });
+  subs.yDetails.forEach(s=>{
+    add('h','yearly_lump',s.account,s.name,s.hVal,'📱サブスク(年)');
+    add('w','yearly_lump',s.account,s.name,s.wVal,'📱サブスク(年)');
+  });
+  subs.pDetails.forEach(s=>{
+    add('h','periodic',s.account,s.name,s.hVal,`📱サブスク(${s.interval}ヶ月ごと)`);
+    add('w','periodic',s.account,s.name,s.wVal,`📱サブスク(${s.interval}ヶ月ごと)`);
+  });
+  ins.details.forEach(i=>{
+    add('h','monthly',i.account,i.name,i.hVal,'🛡️保険');
+    add('w','monthly',i.account,i.name,i.wVal,'🛡️保険');
+  });
+  savs.monthlyItems.forEach(i=>{
+    add('h','monthly',i.account,i.name,i.hVal,'💰貯蓄・投資');
+    add('w','monthly',i.account,i.name,i.wVal,'💰貯蓄・投資');
+  });
+  savs.summerItems.forEach(i=>{
+    add('h','bonus_summer',i.account,i.name,i.hVal,'💰貯蓄・投資');
+    add('w','bonus_summer',i.account,i.name,i.wVal,'💰貯蓄・投資');
+  });
+  savs.winterItems.forEach(i=>{
+    add('h','bonus_winter',i.account,i.name,i.hVal,'💰貯蓄・投資');
+    add('w','bonus_winter',i.account,i.name,i.wVal,'💰貯蓄・投資');
+  });
+  savs.lumpItems.forEach(i=>{
+    add('h','yearly_lump',i.account,i.name,i.hVal,'💰貯蓄・投資');
+    add('w','yearly_lump',i.account,i.name,i.wVal,'💰貯蓄・投資');
+  });
+  return result;
+}
+
 
 function calculate(autoSwitch=true){
   const hIncome=parseFloat(document.getElementById('husbandIncome').value)||0;
@@ -987,9 +1220,11 @@ function calculate(autoSwitch=true){
   const res=calcRatios(hIncome,wIncome,fd.rows);
   const subs=calcSubs(fd.subs,res.hRatio);
   const ins=calcIns(fd.ins,res.hRatio);
-  const grandH=res.totalH+subs.subsH+ins.insH;
-  const grandW=res.totalW+subs.subsW+ins.insW;
-  lastCalcResult={hIncome,wIncome,...res,subs,ins};
+  const savs=calcSavs(res.hRatio,fd.savs);
+  const grandH=res.totalH+subs.mH+ins.insH+savs.mH;
+  const grandW=res.totalW+subs.mW+ins.insW+savs.mW;
+  lastCalcResult={hIncome,wIncome,...res,subs,ins,savs};
+
 
   document.getElementById('husbandBar').style.width=(res.hRatio*100)+'%';
   document.getElementById('wifeBar').style.width=((1-res.hRatio)*100)+'%';
@@ -1025,9 +1260,9 @@ function calculate(autoSwitch=true){
     tbody.appendChild(tr);
   });
 
-  subs.details.forEach((d,i)=>{
+  subs.mDetails.forEach((d,i)=>{
     grandMonthly+=d.amount;
-    const itemKey=`sub_${i}`;
+    const itemKey=`sub_m_${i}`;
     const hChecked=isPaid(`item__${itemKey}__h`);
     const wChecked=isPaid(`item__${itemKey}__w`);
     const tr=document.createElement('tr');
@@ -1073,18 +1308,32 @@ function calculate(autoSwitch=true){
 
   document.getElementById('summaryH').textContent=fmt(grandH);
   document.getElementById('summaryW').textContent=fmt(grandW);
-  document.getElementById('breakdownH').innerHTML=`固定費 ${fmt(res.totalH)}<br>サブスク ${fmt(subs.subsH)}<br>保険料 ${fmt(ins.insH)}`;
-  document.getElementById('breakdownW').innerHTML=`固定費 ${fmt(res.totalW)}<br>サブスク ${fmt(subs.subsW)}<br>保険料 ${fmt(ins.insW)}`;
+  document.getElementById('breakdownH').innerHTML=`固定費 ${fmt(res.totalH)}<br>サブスク(月) ${fmt(subs.mH)}<br>保険料 ${fmt(ins.insH)}<br>貯蓄・投資(反映分) ${fmt(savs.mH)}`;
+  document.getElementById('breakdownW').innerHTML=`固定費 ${fmt(res.totalW)}<br>サブスク(月) ${fmt(subs.mW)}<br>保険料 ${fmt(ins.insW)}<br>貯蓄・投資(反映分) ${fmt(savs.mW)}`;
+
   document.getElementById('remainH').textContent=fmt(hIncome-grandH);
   document.getElementById('remainW').textContent=fmt(wIncome-grandW);
 
-  if(subs.details.length>0){
+  if(subs.mDetails.length>0 || subs.yDetails.length>0){
     document.getElementById('res-sub').classList.remove('hidden');
-    document.getElementById('subGrandTotal').textContent=fmt(subs.subsTotal);
-    document.getElementById('subHusbandTotal').textContent=fmt(subs.subsH);
-    document.getElementById('subWifeTotal').textContent=fmt(subs.subsW);
+    document.getElementById('subGrandTotal').textContent=fmt(subs.mTotal);
+    document.getElementById('subHusbandTotal').textContent=fmt(subs.mH);
+    document.getElementById('subWifeTotal').textContent=fmt(subs.mW);
+
+    const ySum = document.getElementById('subYearlySummary');
+    if(subs.yTotal > 0) {
+      ySum.textContent = `※ 別途、年払いサブスク合計: ${fmt(subs.yTotal)}（夫: ${fmt(subs.yH)} / 妻: ${fmt(subs.yW)}）`;
+    } else {
+      ySum.textContent = '';
+    }
+
     const tb=document.getElementById('subDetailBody');tb.innerHTML='';
-    subs.details.forEach(d=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${d.name}</td><td>${fmt(d.amount)}</td><td><span class="badge ${d.badgeCls}">${d.label}</span></td><td>${d.account||'—'}</td><td class="husband-amount">${fmt(d.hVal)}</td><td class="wife-amount">${fmt(d.wVal)}</td>`;tb.appendChild(tr);});
+    [...subs.mDetails, ...subs.yDetails].forEach(d=>{
+      const cycleText = d.cycle==='yearly' ? `📆 年払い` : '📅 月払い';
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${d.name}</td><td style="font-size:0.8rem;color:#0056b3;font-weight:700;white-space:nowrap;">${cycleText}</td><td>${fmt(d.amount)}</td><td><span class="badge ${d.badgeCls}">${d.label}</span></td><td>${d.account||'—'}</td><td class="husband-amount">${fmt(d.hVal)}</td><td class="wife-amount">${fmt(d.wVal)}</td>`;
+      tb.appendChild(tr);
+    });
   }else{document.getElementById('res-sub').classList.add('hidden');}
 
   if(ins.details.length>0){
@@ -1095,34 +1344,94 @@ function calculate(autoSwitch=true){
     const tb=document.getElementById('insDetailBody');tb.innerHTML='';
     ins.details.forEach(d=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${d.name}</td><td>${d.type||'—'}</td><td>${d.company||'—'}</td><td>${fmt(d.amount)}</td><td><span class="badge ${d.badgeCls}">${d.label}</span></td><td>${d.account||'—'}</td><td class="husband-amount">${fmt(d.hVal)}</td><td class="wife-amount">${fmt(d.wVal)}</td>`;tb.appendChild(tr);});
   }else{document.getElementById('res-ins').classList.add('hidden');}
+  if(savs.monthlyItems.length>0){
+  document.getElementById('res-sav').classList.remove('hidden');
+  document.getElementById('savGrandTotal').textContent=fmt(savs.mTotalAll);
+  document.getElementById('savHusbandTotal').textContent=fmt(savs.mHAll);
+  document.getElementById('savWifeTotal').textContent=fmt(savs.mWAll);
+  const inclNote=document.getElementById('savIncludedSummary');
+  inclNote.textContent = savs.mTotal>0
+    ? `✅ うち最終負担に反映：${fmt(savs.mTotal)}（夫 ${fmt(savs.mH)} / 妻 ${fmt(savs.mW)}）`
+    : 'ℹ️ 現在、最終負担に反映されている貯蓄・投資はありません';
+  const tb=document.getElementById('savDetailBody');tb.innerHTML='';
+  savs.monthlyItems.forEach(d=>{
+    const inclBadge=d.include?`<span class="badge badge-include">含める</span>`:`<span class="badge badge-exclude">含めない</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${d.name}</td><td>${fmt(d.amount)}</td><td>${inclBadge}</td><td><span class="badge ${payerBadge(d.payer)}">${payerLabel(d.payer)}</span></td><td>${d.account||'—'}</td><td class="husband-amount">${fmt(d.hVal)}</td><td class="wife-amount">${fmt(d.wVal)}</td>`;
+    tb.appendChild(tr);
+  });
+}else{
+  document.getElementById('res-sav').classList.add('hidden');
+}
 
-  const accts=calcAccounts(res.monthlyItems,res.summerItems,res.winterItems,res.lumpItems,subs.details,ins.details);
-  renderAccounts(accts);
-  renderBonusSection('bonusSummerSection','bonusSummerBody','bonusSummerTotal','bonusSummerH','bonusSummerW',res.sTotal,res.sH,res.sW,res.summerItems);
-  renderBonusSection('bonusWinterSection','bonusWinterBody','bonusWinterTotal','bonusWinterH','bonusWinterW',res.wnTotal,res.wnH,res.wnW,res.winterItems);
-  const yoSec=document.getElementById('yearlyLumpSection'),yoBody=document.getElementById('yearlyLumpBody');yoBody.innerHTML='';
-  if(res.yTotal>0){
-    yoSec.classList.remove('hidden');
-    res.lumpItems.forEach(item=>{
-      const fb=item.mode==='fixed'
-        ?`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
-        :(item.mode&&item.mode.startsWith('ratio_'))
-          ?`<span class="badge badge-ratio">⚖️ ${ratioToLabel(item.mode.slice(6))}</span>`:'';
-      const tr=document.createElement('tr');tr.innerHTML=`<td>${item.name}<span class="badge badge-lump">一括</span>${fb}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hY)}</td><td class="wife-amount">${fmt(item.wY)}</td>`;yoBody.appendChild(tr);
-    });
-    document.getElementById('yearlyLumpTotal').textContent=fmt(res.yTotal);
-    document.getElementById('yearlyLumpH').textContent=fmt(res.yH);
-    document.getElementById('yearlyLumpW').textContent=fmt(res.yW);
-  }else{yoSec.classList.add('hidden');}
+  const personAccts = calcPersonPeriodAccounts(res, subs, ins, savs);
+  renderPersonPeriodSummary(personAccts);
+
+const summerTotalAll = res.sTotal + savs.sTotal;
+const summerHAll     = res.sH + savs.sH;
+const summerWAll     = res.sW + savs.sW;
+const summerItemsAll = [...res.summerItems, ...savs.summerItems];
+renderBonusSection('bonusSummerSection','bonusSummerBody','bonusSummerTotal','bonusSummerH','bonusSummerW',summerTotalAll,summerHAll,summerWAll,summerItemsAll);
+
+const winterTotalAll = res.wnTotal + savs.wnTotal;
+const winterHAll     = res.wnH + savs.wnH;
+const winterWAll     = res.wnW + savs.wnW;
+const winterItemsAll = [...res.winterItems, ...savs.winterItems];
+renderBonusSection('bonusWinterSection','bonusWinterBody','bonusWinterTotal','bonusWinterH','bonusWinterW',winterTotalAll,winterHAll,winterWAll,winterItemsAll);
+
+const yoSec=document.getElementById('yearlyLumpSection'),yoBody=document.getElementById('yearlyLumpBody');yoBody.innerHTML='';
+const lumpTotal = res.yTotal + subs.yTotal + savs.yTotal;
+if(lumpTotal>0){
+  yoSec.classList.remove('hidden');
+  res.lumpItems.forEach(item=>{
+    const fb=item.mode==='fixed'
+      ?`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
+      :(item.mode&&item.mode.startsWith('ratio_'))
+        ?`<span class="badge badge-ratio">⚖️ ${ratioToLabel(item.mode.slice(6))}</span>`:'';
+    const tr=document.createElement('tr');tr.innerHTML=`<td>${item.name}<span class="badge badge-lump">一括</span>${fb}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hY)}</td><td class="wife-amount">${fmt(item.wY)}</td>`;yoBody.appendChild(tr);
+  });
+  subs.yDetails.forEach(item=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${item.name}<span class="badge badge-sub">サブスク</span><span class="badge badge-lump">年払い</span><span class="badge ${item.badgeCls}">${item.label}</span></td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
+    yoBody.appendChild(tr);
+  });
+  savs.lumpItems.forEach(item=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${item.name}<span class="badge badge-sav">💰貯蓄・投資</span><span class="badge ${payerBadge(item.payer)}">${payerLabel(item.payer)}</span></td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
+    yoBody.appendChild(tr);
+  });
+  document.getElementById('yearlyLumpTotal').textContent=fmt(lumpTotal);
+  document.getElementById('yearlyLumpH').textContent=fmt(res.yH + subs.yH + savs.yH);
+  document.getElementById('yearlyLumpW').textContent=fmt(res.yW + subs.yW + savs.yW);
+}else{yoSec.classList.add('hidden');}
+
+const pSec=document.getElementById('res-periodic'),pBody=document.getElementById('periodicSubBody');pBody.innerHTML='';
+if(subs.pDetails && subs.pDetails.length>0){
+  pSec.classList.remove('hidden');
+  subs.pDetails.forEach(item=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${item.name}<span class="badge badge-periodic">${item.interval}ヶ月ごと</span><span class="badge ${item.badgeCls}">${item.label}</span></td><td>${fmt(item.amount)}</td><td style="font-size:0.82rem;color:#e65100;font-weight:700;">${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
+    pBody.appendChild(tr);
+  });
+  document.getElementById('periodicSubTotal').textContent=fmt(subs.pTotal);
+  document.getElementById('periodicSubH').textContent=fmt(subs.pH);
+  document.getElementById('periodicSubW').textContent=fmt(subs.pW);
+}else{
+  pSec.classList.add('hidden');
+}
+
 
   if(pieChart)pieChart.destroy();
   pieChart=new Chart(document.getElementById('pieChart'),{type:'pie',data:{labels:['夫の月間負担','妻の月間負担'],datasets:[{data:[grandH,grandW],backgroundColor:['#667eea','#f5576c']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
   if(barChart)barChart.destroy();
-  const allMonthlyItems=[
-    ...res.monthlyItems.map(i=>({label:i.name.replace(/（[^）]*）/g,'').replace(/[🛒⚡🔥💧🏠👶🏫🚗🏡🚘🧊]/gu,'').trim(),h:Math.round(i.hM),w:Math.round(i.wM)})),
-    ...subs.details.map(d=>({label:d.name.replace(/[📺🛒🎵☁️]/gu,'').trim(),h:Math.round(d.hVal),w:Math.round(d.wVal)})),
-    ...ins.details.map(d=>({label:d.name,h:Math.round(d.hVal),w:Math.round(d.wVal)})),
-  ];
+
+const allMonthlyItems=[
+  ...res.monthlyItems.map(i=>({label:i.name.replace(/（[^）]*）/g,'').replace(/[🛒⚡🔥💧🏠👶🏫🚗🏡🚘🧊]/gu,'').trim(),h:Math.round(i.hM),w:Math.round(i.wM)})),
+  ...subs.mDetails.map(d=>({label:d.name.replace(/[📺🛒🎵☁️]/gu,'').trim(),h:Math.round(d.hVal),w:Math.round(d.wVal)})),
+  ...ins.details.map(d=>({label:d.name,h:Math.round(d.hVal),w:Math.round(d.wVal)})),
+  ...savs.monthlyItems.filter(d=>d.include).map(d=>({label:d.name,h:Math.round(d.hVal),w:Math.round(d.wVal)})),
+];
+
   barChart=new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:allMonthlyItems.map(i=>i.label),datasets:[{label:'夫の負担',data:allMonthlyItems.map(i=>i.h),backgroundColor:'rgba(102,126,234,0.75)'},{label:'妻の負担',data:allMonthlyItems.map(i=>i.w),backgroundColor:'rgba(245,87,108,0.75)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'¥'+v.toLocaleString()}},x:{ticks:{maxRotation:45,minRotation:30,font:{size:10}}}}}});
 
   document.getElementById('noResultMsg').classList.add('hidden');
@@ -1137,43 +1446,81 @@ function toggleDetail(secId,btn){
   btn.textContent=hidden?`${base} 表示する ▼`:`${base} 隠す ▲`;
 }
 
-function renderAccounts(accts){
-  lastAccts=accts;
-  const list=document.getElementById('acctList');list.innerHTML='';
-  if(!accts.length){document.getElementById('res-acct').classList.add('hidden');return;}
-  document.getElementById('res-acct').classList.remove('hidden');
-  accts.forEach(a=>{
-    const paid=isPaid(a.name);
-    const div=document.createElement('div');div.className='acct-item '+(paid?'paid':'');
-    let itemRows='';
-    a.items.forEach(i=>{itemRows+=`<tr><td>${i.name}</td><td><span class="badge badge-cat">${i.category}</span></td><td>${fmt(i.amount)}</td><td class="husband-amount">${fmt(i.hVal)}</td><td class="wife-amount">${fmt(i.wVal)}</td></tr>`;});
-    const safeAcct=a.name.replace(/'/g,"\\'");
-    div.innerHTML=`
-      <div class="acct-item-header">
-        <span class="acct-name">🏦 ${a.name}<span class="paid-badge-slot">${paid?'<span class="paid-badge">✅ 振込済</span>':''}</span></span>
-        <span class="acct-total-badge">合計 ${fmt(a.total)}</span>
-      </div>
-      <label class="acct-check-wrap">
-        <input type="checkbox" class="acct-check" data-acct="${a.name}" ${paid?'checked':''} onchange="togglePaid('${safeAcct}',this.checked)">
-        振り込み済みにする（${monthKey()}分）
-      </label>
-      <div class="acct-breakdown">
-        <div class="acct-breakdown-item"><div class="ab-label">夫の負担分</div><div class="ab-value husband-amount">${fmt(a.hTotal)}</div></div>
-        <div class="acct-breakdown-item"><div class="ab-label">妻の負担分</div><div class="ab-value wife-amount">${fmt(a.wTotal)}</div></div>
-      </div>
-      <div style="overflow-x:auto;"><table class="result-table acct-table" style="font-size:0.8rem;"><thead><tr><th>項目名</th><th>種別</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody>${itemRows}</tbody></table></div>`;
-    list.appendChild(div);
+function renderPersonPeriodSummary(ppData){
+  const container = document.getElementById('transferSummaryBody');
+  container.innerHTML = '';
+  const persons = [
+    {key:'h', label:'👨 夫の振込サマリ', cls:'husband'},
+    {key:'w', label:'👩 妻の振込サマリ', cls:'wife'}
+  ];
+  let anyData = false;
+
+  persons.forEach(person=>{
+    const personData = ppData[person.key];
+    const hasData = TRANSFER_PERIODS.some(p=>Object.keys(personData[p]).length>0);
+    if(!hasData) return;
+    anyData = true;
+
+    let html = `<div class="transfer-person-title ${person.cls}">${person.label}</div>`;
+
+    TRANSFER_PERIODS.forEach(periodKey=>{
+      const accts = personData[periodKey];
+      const acctNames = Object.keys(accts);
+      if(acctNames.length===0) return;
+      const periodTotal = acctNames.reduce((s,a)=>s+accts[a].total,0);
+
+      html += `<div class="transfer-period-block">
+        <div class="transfer-period-title"><span>${periodLabel(periodKey)}</span><span>合計：${fmt(periodTotal)}</span></div>`;
+
+      acctNames.forEach((acctName,idx)=>{
+        const acctData = accts[acctName];
+        const paidKey = transferPaidKey(acctName, periodKey, person.key);
+        const paid = isPaid(paidKey);
+        const safeAcct = acctName.replace(/'/g,"\\'");
+        const detailId = `td_${person.key}_${periodKey}_${idx}`;
+        const itemsRows = acctData.items.map(it=>
+          `<div class="detail-row"><span class="detail-row-name">${it.name} <span class="badge badge-cat">${it.category}</span></span><span class="detail-row-vals">${fmt(it.val)}</span></div>`
+        ).join('');
+
+        html += `
+          <div class="transfer-acct-item ${paid?'paid':''}">
+            <div class="transfer-acct-header">
+              <span class="transfer-acct-name">🏦 ${acctName}</span>
+              <span class="transfer-acct-amount ${person.key==='h'?'husband-amount':'wife-amount'}">${fmt(acctData.total)}</span>
+            </div>
+            <label class="acct-check-wrap">
+              <input type="checkbox" ${paid?'checked':''} onchange="toggleTransferPaid('${safeAcct}','${periodKey}','${person.key}',this.checked,this)">
+              振込済みにする（${monthKey()}分）
+            </label>
+            <button class="detail-toggle" style="margin-top:6px;" onclick="toggleDetail('${detailId}',this)">📋 明細を表示する ▼</button>
+            <div id="${detailId}" class="hidden">${itemsRows}</div>
+          </div>`;
+      });
+
+      html += `</div>`;
+    });
+
+    const block = document.createElement('div');
+    block.className = 'transfer-person-block';
+    block.innerHTML = html;
+    container.appendChild(block);
   });
+
+  document.getElementById('res-acct').classList.toggle('hidden', !anyData);
 }
 
 function renderBonusSection(sId,bId,tId,hId,wId,total,hVal,wVal,items){
   const sec=document.getElementById(sId),tbody=document.getElementById(bId);tbody.innerHTML='';
   if(total<=0){sec.classList.add('hidden');return;}sec.classList.remove('hidden');
   items.forEach(item=>{
-    const fb=item.mode==='fixed'
-      ?`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
-      :(item.mode&&item.mode.startsWith('ratio_'))
-        ?`<span class="badge badge-ratio">⚖️ ${ratioToLabel(item.mode.slice(6))}</span>`:'';
+    let fb='';
+    if(item.isSaving){
+      fb=`<span class="badge badge-sav">💰貯蓄・投資</span><span class="badge ${payerBadge(item.payer)}">${payerLabel(item.payer)}</span>`;
+    }else if(item.mode==='fixed'){
+      fb=`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`;
+    }else if(item.mode&&item.mode.startsWith('ratio_')){
+      fb=`<span class="badge badge-ratio">⚖️ ${ratioToLabel(item.mode.slice(6))}</span>`;
+    }
     const tr=document.createElement('tr');tr.innerHTML=`<td>${item.name}${fb}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;tbody.appendChild(tr);
   });
   document.getElementById(tId).textContent=fmt(total);document.getElementById(hId).textContent=fmt(hVal);document.getElementById(wId).textContent=fmt(wVal);
@@ -1209,7 +1556,9 @@ async function loadHistoryList(){
       const res2=calcRatios(hI,wI,record.rows||[]);
       const sub2=calcSubs(record.subs||[],res2.hRatio);
       const ins2=calcIns(record.ins||[],res2.hRatio);
-      const gH=res2.totalH+sub2.subsH+ins2.insH,gW=res2.totalW+sub2.subsW+ins2.insW;
+      const sav2=calcSavs(res2.hRatio,record.savs||[]);
+      const gH=res2.totalH+sub2.mH+ins2.insH+sav2.mH,gW=res2.totalW+sub2.mW+ins2.insW+sav2.mW;
+
       const savedStr=record.savedAtStr||'';
       const div=document.createElement('div');div.className='history-item';
       div.innerHTML=`
@@ -1219,7 +1568,7 @@ async function loadHistoryList(){
         </div>
         <div class="history-item-meta">保存日時：${savedStr}　夫 ${fmt(hI)}（${hP}%）／妻 ${fmt(wI)}（${wP}%）／費用${rc}件・サブスク${sc}件・保険${ic}件</div>
         <div class="history-summary">
-          <div class="hs-item"><div class="hs-label">月々合計</div><div class="hs-value">${fmt(res2.totalMonthly+sub2.subsTotal+ins2.insTotal)}</div></div>
+          <div class="hs-item"><div class="hs-label">月々合計</div><div class="hs-value">${fmt(res2.totalMonthly+sub2.mTotal+ins2.insTotal)}</div></div>
           <div class="hs-item"><div class="hs-label">夫の最終負担</div><div class="hs-value husband-amount">${fmt(gH)}</div></div>
           <div class="hs-item"><div class="hs-label">妻の最終負担</div><div class="hs-value wife-amount">${fmt(gW)}</div></div>
         </div>
@@ -1244,6 +1593,7 @@ async function showHistoryDetail(key){
     const res=calcRatios(hI,wI,record.rows||[]);
     const sub=calcSubs(record.subs||[],res.hRatio);
     const ins=calcIns(record.ins||[],res.hRatio);
+    const sav=calcSavs(res.hRatio,record.savs||[]);
     document.getElementById('detailModalTitle').textContent=`📋 ${record.label} の詳細`;
     let html=`<p style="font-size:0.82rem;color:#888;margin-bottom:12px;">保存日時：${record.savedAtStr||'—'}　夫 ${fmt(hI)} / 妻 ${fmt(wI)}</p>`;
 
@@ -1260,7 +1610,11 @@ async function showHistoryDetail(key){
       html+=`<div class="detail-section"><h4>📱 サブスクリプション</h4>`;
       record.subs.forEach(s=>{
         const a=parseFloat(s.amount)||0;if(a<=0)return;
-        html+=`<div class="detail-row"><span class="detail-row-name">${s.name}</span><span class="detail-row-vals">${fmt(a)}/月・${payerLabel(s.payer)}・${s.account||'口座未設定'}</span></div>`;
+        const cycle=s.cycle||'monthly';
+        let cycleText='月払い';
+        if(cycle==='yearly'){cycleText=`年払い（${fmt(a)}/年）`;}
+        else if(cycle==='periodic'){cycleText=`${s.interval||'?'}ヶ月ごと（起点:${s.startMonth||'?'}月）`;}
+        html+=`<div class="detail-row"><span class="detail-row-name">${s.name}</span><span class="detail-row-vals">${cycleText}・${payerLabel(s.payer)}・${s.account||'口座未設定'}</span></div>`;
       });
       html+=`</div>`;
     }
@@ -1272,9 +1626,19 @@ async function showHistoryDetail(key){
       });
       html+=`</div>`;
     }
-    const gH=res.totalH+sub.subsH+ins.insH,gW=res.totalW+sub.subsW+ins.insW;
+    if((record.savs||[]).length){
+      html+=`<div class="detail-section"><h4>💰 貯蓄・投資</h4>`;
+      record.savs.forEach(s=>{
+        const a=parseFloat(s.amount)||0;if(a<=0)return;
+        const cycleLabel={monthly:'毎月',bonus_summer:'夏ボーナス',bonus_winter:'冬ボーナス',yearly_lump:'年一括'}[s.cycle]||s.cycle;
+        const inclText = s.includeInFinal==='true' ? '最終負担に含める' : '最終負担に含めない';
+        html+=`<div class="detail-row"><span class="detail-row-name">${s.name}</span><span class="detail-row-vals">${fmt(a)}・${cycleLabel}・${inclText}・${s.account||'口座未設定'}</span></div>`;
+      });
+      html+=`</div>`;
+    }
+    const gH=res.totalH+sub.mH+ins.insH+sav.mH,gW=res.totalW+sub.mW+ins.insW+sav.mW;
     html+=`<div style="background:#f8f8ff;border-radius:10px;padding:12px;margin-top:8px;font-size:0.85rem;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>月々合計（月額換算）</span><strong>${fmt(res.totalMonthly+sub.subsTotal+ins.insTotal)}</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>月々合計（月額換算）</span><strong>${fmt(res.totalMonthly+sub.mTotal+ins.insTotal+sav.mTotal)}</strong></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:#5a6fd6;">夫の最終月間負担</span><strong style="color:#5a6fd6;">${fmt(gH)}</strong></div>
       <div style="display:flex;justify-content:space-between;"><span style="color:#e0457a;">妻の最終月間負担</span><strong style="color:#e0457a;">${fmt(gW)}</strong></div>
     </div>`;
@@ -1301,14 +1665,17 @@ async function compareHistory(key){
     const pRes=calcRatios(pHI,pWI,past.rows||[]);
     const pSubs=calcSubs(past.subs||[],pRes.hRatio);
     const pIns=calcIns(past.ins||[],pRes.hRatio);
+    const pSavs=calcSavs(pRes.hRatio,past.savs||[]);
     const cur=lastCalcResult;
-    const curGH=cur.totalH+cur.subs.subsH+cur.ins.insH,curGW=cur.totalW+cur.subs.subsW+cur.ins.insW;
-    const pGH=pRes.totalH+pSubs.subsH+pIns.insH,pGW=pRes.totalW+pSubs.subsW+pIns.insW;
+    const curGH=cur.totalH+cur.subs.mH+cur.ins.insH+(cur.savs?cur.savs.mH:0),curGW=cur.totalW+cur.subs.mW+cur.ins.insW+(cur.savs?cur.savs.mW:0);
+    const pGH=pRes.totalH+pSubs.mH+pIns.insH+pSavs.mH,pGW=pRes.totalW+pSubs.mW+pIns.insW+pSavs.mW;
+
     document.getElementById('compareTitle').textContent=`現在の計算結果　vs　${past.label} との比較`;
     const rows=[
       {label:'固定費合計（月額）',cur:cur.totalMonthly,past:pRes.totalMonthly},
-      {label:'サブスク合計',cur:cur.subs.subsTotal,past:pSubs.subsTotal},
+      {label:'サブスク合計（月額）',cur:cur.subs.mTotal,past:pSubs.mTotal},
       {label:'保険料合計',cur:cur.ins.insTotal,past:pIns.insTotal},
+      {label:'貯蓄・投資合計（最終負担反映分）',cur:cur.savs?cur.savs.mTotal:0,past:pSavs.mTotal},
       {label:'夫の最終月間負担',cur:curGH,past:pGH},
       {label:'妻の最終月間負担',cur:curGW,past:pGW},
       {label:'夫の手取り残額',cur:cur.hIncome-curGH,past:pHI-pGH},
@@ -1390,7 +1757,6 @@ async function init(){
   fbListenSSEStable(PAID_PATH,event=>{
     if(!event||!event.data)return;
     paidData=event.data;
-    if(lastAccts&&lastAccts.length)renderAccounts(lastAccts);
     if(lastCalcResult)calculate(false);
   });
 }
