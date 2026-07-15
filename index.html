@@ -1304,7 +1304,7 @@ function calculate(autoSwitch=true){
     tbody.appendChild(tr);
   });
 
-  ins.details.forEach((d,i)=>{
+    ins.details.forEach((d,i)=>{
     grandMonthly+=d.amount;
     const itemKey=`ins_${i}`;
     const hChecked=isPaid(`item__${itemKey}__h`);
@@ -1324,6 +1324,30 @@ function calculate(autoSwitch=true){
       </td>`;
     tbody.appendChild(tr);
   });
+
+  // ▼▼▼ ここから追加：「最終負担に含める」設定の貯蓄・投資を月々の家計表にも表示する ▼▼▼
+  savs.monthlyItems.forEach((d,i)=>{
+    if(!d.include) return; // 「含めない」設定の項目はここでは表示しない（既存の「💰貯蓄・投資集計」だけに残す）
+    grandMonthly+=d.amount;
+    const itemKey=`sav_${i}`;
+    const hChecked=isPaid(`item__${itemKey}__h`);
+    const wChecked=isPaid(`item__${itemKey}__w`);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${d.name}<span class="badge badge-sav">貯蓄・投資</span><span class="badge ${payerBadge(d.payer)}">${payerLabel(d.payer)}</span></td>
+      <td>${fmt(d.amount)}</td>
+      <td style="font-size:0.82rem;color:#e65100;font-weight:700;">${d.account||'—'}</td>
+      <td class="husband-amount">
+        ${fmt(d.hVal)}
+        ${d.hVal>0?`<div><label class="item-paid-label ${hChecked?'paid-h':''}"><input type="checkbox" ${hChecked?'checked':''} onchange="toggleItemPaid('${itemKey}','h',this.checked,this)"> 夫済</label></div>`:''}
+      </td>
+      <td class="wife-amount">
+        ${fmt(d.wVal)}
+        ${d.wVal>0?`<div><label class="item-paid-label ${wChecked?'paid-w':''}"><input type="checkbox" ${wChecked?'checked':''} onchange="toggleItemPaid('${itemKey}','w',this.checked,this)"> 妻済</label></div>`:''}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  // ▲▲▲ ここまで追加 ▲▲▲
 
   document.getElementById('totalMonthly').textContent=fmt(grandMonthly);
   document.getElementById('totalHusband').textContent=fmt(grandH);
