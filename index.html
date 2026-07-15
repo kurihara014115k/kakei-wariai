@@ -713,20 +713,18 @@ function buildPayerOptions(current){
 }
 
 function buildModeOptions(current){
-  return buildPayerOptions(current) + `<option value="fixed" ${current==='fixed'?'selected':''}>✏️ 固定割合を手動入力</option>`;
+  return buildPayerOptions(current);
 }
 
 
 function buildModeOptions(current){
-  // サブスク・保険・貯蓄投資と共通の選択肢（共同50:50 / 共同収入比 / 夏ボーナス収入比 / 冬ボーナス収入比 / 夫のみ / 妻のみ / カスタム比率）をまず作り、
-  // 費用項目だけの追加機能である「固定割合を手動入力」を末尾に足す
-  return buildPayerOptions(current) + `<option value="fixed" ${current==='fixed'?'selected':''}>✏️ 固定割合を手動入力</option>`;
+  return buildPayerOptions(current);
 }
 
 function refreshPayerDropdowns(){
   document.querySelectorAll('.sub-payer').forEach(sel=>{const c=sel.value;sel.innerHTML=buildPayerOptions(c);});
   document.querySelectorAll('.ins-payer-sel').forEach(sel=>{const c=sel.value;sel.innerHTML=buildPayerOptions(c);});
-  document.querySelectorAll('.exp-mode').forEach(sel=>{const c=sel.value;sel.innerHTML=buildModeOptions(c);const fr=sel.closest('.expense-row-body')?.querySelector('.fixed-ratio');if(fr)fr.classList.toggle('hidden',c!=='fixed');});
+  document.querySelectorAll('.exp-mode').forEach(sel=>{const c=sel.value;sel.innerHTML=buildModeOptions(c);});
 }
 
 function buildOptions(list,current,placeholder){
@@ -847,14 +845,15 @@ async function toggleTransferPaid(acct,period,person,checked,cbEl){
 
 function getFormData(){
   const rows=[],subs=[],ins=[],savs=[];
-  document.querySelectorAll('#expenseList .expense-row').forEach(r=>rows.push({
+   document.querySelectorAll('#expenseList .expense-row').forEach(r=>rows.push({
     name:r.querySelector('.exp-name').value,
     amount:r.querySelector('.exp-amount').value,
     cycle:r.querySelector('.exp-cycle').value,
     mode:r.querySelector('.exp-mode').value,
-    hPct:parseFloat(r.querySelector('.exp-h-pct').value)||50,
+    hPct:50,
     account:r.querySelector('.account-sel').value||''
   }));
+
   document.querySelectorAll('#subList .sub-row').forEach(r=>subs.push({
     name:r.querySelector('.sub-name').value,
     amount:r.querySelector('.sub-amount').value,
@@ -914,9 +913,7 @@ function applyData(data){
 
 function addRow(data,idx,total){
   data=data||{name:'',amount:'',cycle:'monthly',mode:'auto',hPct:50,account:''};
-  const wPct=100-(data.hPct||50);
   const isFirst=idx===0,isLast=idx===(total-1);
-  const showFixed=data.mode==='fixed';
   const div=document.createElement('div');div.className='expense-row';
   div.innerHTML=`
     <div class="expense-row-header">
@@ -936,28 +933,15 @@ function addRow(data,idx,total){
         <option value="bonus_winter" ${data.cycle==='bonus_winter'?'selected':''}>⛄ 冬ボーナス払い</option>
         <option value="yearly_lump" ${data.cycle==='yearly_lump'?'selected':''}>年1回・一括（月割りなし）</option>
       </select>
-      <select class="exp-mode" onchange="toggleMode(this)">${buildModeOptions(data.mode)}</select>
-      <div class="fixed-ratio ${showFixed?'':'hidden'}">
-        <span>夫</span><input type="number" class="exp-h-pct" min="0" max="100" value="${data.hPct||50}" oninput="syncPct(this,'h')">
-        <span>%　妻</span><input type="number" class="exp-w-pct" min="0" max="100" value="${wPct}" oninput="syncPct(this,'w')"><span>%</span>
-      </div>
+      <select class="exp-mode">${buildModeOptions(data.mode)}</select>
       <select class="account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
     </div>`;
   document.getElementById('expenseList').appendChild(div);
 }
+
+
 function removeExpenseRow(btn){const data=getFormData();const row=btn.closest('.expense-row');const idx=Array.from(document.querySelectorAll('#expenseList .expense-row')).indexOf(row);data.rows.splice(idx,1);applyData(data);scheduleAutoSave();}
 function addNewExpenseRow(){const data=getFormData();data.rows.push({name:'',amount:'',cycle:'monthly',mode:'auto',hPct:50,account:''});applyData(data);scheduleAutoSave();}
-function toggleMode(selectEl){
-  const fr=selectEl.closest('.expense-row-body')?.querySelector('.fixed-ratio');
-  if(fr)fr.classList.toggle('hidden',selectEl.value!=='fixed');
-  scheduleAutoSave();
-}
-function syncPct(inputEl,which){
-  const wrap=inputEl.closest('.fixed-ratio');
-  const h=wrap.querySelector('.exp-h-pct'),w=wrap.querySelector('.exp-w-pct');
-  const val=Math.min(100,Math.max(0,parseFloat(which==='h'?h.value:w.value)||0));
-  if(which==='h'){h.value=val;w.value=100-val;}else{w.value=val;h.value=100-val;}
-}
 
 function addSubRow(data,idx,total){
   data=data||{name:'',amount:'',cycle:'monthly',interval:'3',startMonth:'1',payer:'half',account:''};
