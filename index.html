@@ -11,10 +11,10 @@ body { font-family:'Segoe UI','Helvetica Neue',sans-serif; background:linear-gra
 .container { max-width:1000px; margin:0 auto; padding:0 12px 40px; }
 h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-shadow:0 2px 4px rgba(0,0,0,0.3); padding-top:20px; }
 .subtitle { text-align:center; color:rgba(255,255,255,0.85); margin-bottom:16px; font-size:0.95rem; }
-.tab-bar { position:sticky; top:0; z-index:100; display:flex; flex-wrap:wrap; background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-bottom:2px solid rgba(255,255,255,0.2); border-radius:12px 12px 0 0; margin-top:8px; }
-.tab-btn { flex:1; min-width:75px; padding:13px 4px; border:none; background:transparent; color:rgba(255,255,255,0.7); font-size:0.85rem; font-weight:700; cursor:pointer; transition:all .2s; border-radius:12px 12px 0 0; white-space:nowrap; }
-.tab-btn.active { color:white; border-bottom:3px solid white; background:rgba(255,255,255,0.15); }
-.tab-btn:hover:not(.active) { background:rgba(255,255,255,0.08); color:white; }
+.tab-bar { position:sticky; top:0; z-index:100; display:flex; flex-wrap:wrap; background:linear-gradient(135deg,#667eea,#764ba2); border-bottom:2px solid rgba(255,255,255,0.3); border-radius:12px 12px 0 0; margin-top:8px; box-shadow:0 4px 16px rgba(0,0,0,0.25); }
+.tab-btn { flex:1; min-width:75px; padding:13px 4px; border:none; background:transparent; color:rgba(255,255,255,0.85); font-size:0.85rem; font-weight:700; cursor:pointer; transition:all .2s; border-radius:12px 12px 0 0; white-space:nowrap; }
+.tab-btn.active { color:white; border-bottom:3px solid white; background:rgba(255,255,255,0.18); }
+.tab-btn:hover:not(.active) { background:rgba(255,255,255,0.12); color:white; }
 .tab-content { display:none; padding:20px 8px 0; }
 .tab-content.active { display:block; }
 .card { background:white; border-radius:16px; padding:24px; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15); }
@@ -703,20 +703,18 @@ function buildPayerOptions(current){
   });
   return html;
 }
+
 function buildModeOptions(current){
-  // 費用項目の選択肢を、サブスク・保険・貯蓄投資と共通のbuildPayerOptions()ベースに統一し、
-  // 費用項目だけの機能である「固定割合を手動入力」だけを末尾に追加する
   return buildPayerOptions(current) + `<option value="fixed" ${current==='fixed'?'selected':''}>✏️ 固定割合を手動入力</option>`;
 }
 
+
 function buildModeOptions(current){
-  let html=`<option value="auto" ${current==='auto'?'selected':''}>収入比で自動計算</option><option value="fixed" ${current==='fixed'?'selected':''}>固定割合を手動入力</option>`;
-  (masterData.ratios||[]).forEach(r=>{
-    const v=`ratio_${r}`;
-    html+=`<option value="${v}" ${current===v?'selected':''}>⚖️ ${ratioToLabel(r)}</option>`;
-  });
-  return html;
+  // サブスク・保険・貯蓄投資と共通の選択肢（共同50:50 / 共同収入比 / 夏ボーナス収入比 / 冬ボーナス収入比 / 夫のみ / 妻のみ / カスタム比率）をまず作り、
+  // 費用項目だけの追加機能である「固定割合を手動入力」を末尾に足す
+  return buildPayerOptions(current) + `<option value="fixed" ${current==='fixed'?'selected':''}>✏️ 固定割合を手動入力</option>`;
 }
+
 function refreshPayerDropdowns(){
   document.querySelectorAll('.sub-payer').forEach(sel=>{const c=sel.value;sel.innerHTML=buildPayerOptions(c);});
   document.querySelectorAll('.ins-payer-sel').forEach(sel=>{const c=sel.value;sel.innerHTML=buildPayerOptions(c);});
@@ -1268,13 +1266,12 @@ function calculate(autoSwitch=true){
   const tbody=document.getElementById('resultBody');tbody.innerHTML='';
   let grandMonthly=0;
 
-  res.monthlyItems.forEach((item,i)=>{
+    res.monthlyItems.forEach((item,i)=>{
     grandMonthly+=item.monthly;
     const cb=item.cycle==='yearly'?`<span class="badge badge-yearly">年額÷12</span>`:'';
     const fb=item.mode==='fixed'
       ?`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
-      :(item.mode&&item.mode.startsWith('ratio_'))
-        ?`<span class="badge badge-ratio">⚖️ ${ratioToLabel(item.mode.slice(6))}</span>`:'';
+      :`<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
     const itemKey=`exp_${i}`;
     const hChecked=isPaid(`item__${itemKey}__h`);
     const wChecked=isPaid(`item__${itemKey}__w`);
@@ -1417,13 +1414,13 @@ const yoSec=document.getElementById('yearlyLumpSection'),yoBody=document.getElem
 const lumpTotal = res.yTotal + subs.yTotal + savs.yTotal;
 if(lumpTotal>0){
   yoSec.classList.remove('hidden');
-  res.lumpItems.forEach(item=>{
+   res.lumpItems.forEach(item=>{
     const fb=item.mode==='fixed'
       ?`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
-      :(item.mode&&item.mode.startsWith('ratio_'))
-        ?`<span class="badge badge-ratio">⚖️ ${ratioToLabel(item.mode.slice(6))}</span>`:'';
+      :`<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
     const tr=document.createElement('tr');tr.innerHTML=`<td>${item.name}<span class="badge badge-lump">一括</span>${fb}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hY)}</td><td class="wife-amount">${fmt(item.wY)}</td>`;yoBody.appendChild(tr);
   });
+
   subs.yDetails.forEach(item=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${item.name}<span class="badge badge-sub">サブスク</span><span class="badge badge-lump">年払い</span><span class="badge ${item.badgeCls}">${item.label}</span></td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
@@ -1552,8 +1549,8 @@ function renderBonusSection(sId,bId,tId,hId,wId,total,hVal,wVal,items){
       fb=`<span class="badge badge-sav">💰貯蓄・投資</span><span class="badge ${payerBadge(item.payer)}">${payerLabel(item.payer)}</span>`;
     }else if(item.mode==='fixed'){
       fb=`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`;
-    }else if(item.mode&&item.mode.startsWith('ratio_')){
-      fb=`<span class="badge badge-ratio">⚖️ ${ratioToLabel(item.mode.slice(6))}</span>`;
+    }else{
+      fb=`<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
     }
     const tr=document.createElement('tr');tr.innerHTML=`<td>${item.name}${fb}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;tbody.appendChild(tr);
   });
