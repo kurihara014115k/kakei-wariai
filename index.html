@@ -278,15 +278,25 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   <div class="tab-content active" id="tab-input">
     <div class="carryover-notice">✅ 前回の入力内容が引き継がれています。各カードの並び順は「⚙️ 設定」タブから変更できます。</div>
     <div id="inputArea">
-      <div class="card" id="inp-income">
-        <h2>👫 夫婦の月収入力</h2>
+    <div class="card" id="inp-income">
+        <h2>👫 夫婦の月収・ボーナス入力</h2>
         <div class="income-grid">
           <div class="input-group"><label>夫の月収（手取り）</label><div class="input-suffix"><input type="number" id="husbandIncome" placeholder="例: 350000" min="0"/><span>円</span></div></div>
           <div class="input-group"><label>妻の月収（手取り）</label><div class="input-suffix"><input type="number" id="wifeIncome" placeholder="例: 250000" min="0"/><span>円</span></div></div>
         </div>
+        <div class="income-grid" style="margin-top:12px;">
+          <div class="input-group"><label>🌻 夫の夏ボーナス（手取り）</label><div class="input-suffix"><input type="number" id="husbandSummerIncome" placeholder="例: 400000" min="0"/><span>円</span></div></div>
+          <div class="input-group"><label>🌻 妻の夏ボーナス（手取り）</label><div class="input-suffix"><input type="number" id="wifeSummerIncome" placeholder="例: 300000" min="0"/><span>円</span></div></div>
+        </div>
+        <div class="income-grid" style="margin-top:12px;">
+          <div class="input-group"><label>⛄ 夫の冬ボーナス（手取り）</label><div class="input-suffix"><input type="number" id="husbandWinterIncome" placeholder="例: 400000" min="0"/><span>円</span></div></div>
+          <div class="input-group"><label>⛄ 妻の冬ボーナス（手取り）</label><div class="input-suffix"><input type="number" id="wifeWinterIncome" placeholder="例: 300000" min="0"/><span>円</span></div></div>
+        </div>
+        <p style="font-size:0.78rem;color:#999;margin-top:8px;">※ ボーナス額を入力すると、費用項目・貯蓄投資の負担方法で「🌻共同（夏ボーナス収入比）」「⛄共同（冬ボーナス収入比）」が選べるようになります。未入力の場合は月収比が使われます。</p>
         <div class="ratio-bar"><div class="husband" id="husbandBar" style="width:50%"></div><div class="wife" id="wifeBar" style="width:50%"></div></div>
         <div class="ratio-labels"><span id="husbandRatioLabel">夫 --%</span><span id="wifeRatioLabel">妻 --%</span></div>
       </div>
+
       <div class="card" id="inp-sync">
         <h2>🔗 同期状態・共有</h2>
         <div class="btn-row"><button class="btn-secondary" onclick="shareLink()">📋 このページのURLをコピーする</button></div>
@@ -656,31 +666,33 @@ function fmtDiff(n){
 }
 function monthKey(){const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;}
 
-function resolveHPct(payerOrMode,hRatio,fixedHPct){
+function resolveHPct(payerOrMode,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio,fixedHPct){
   if(!payerOrMode)return hRatio*100;
   if(payerOrMode.startsWith('ratio_')){
     const parts=payerOrMode.slice(6).split(':');
     return parseFloat(parts[0])||0;
   }
-  const map={half:50,auto:hRatio*100,husband:100,wife:0,fixed:fixedHPct||0};
+  const map={half:50,auto:hRatio*100,auto_summer:hSummerRatio*100,auto_winter:hWinterRatio*100,husband:100,wife:0,fixed:fixedHPct||0};
   return(map[payerOrMode]!==undefined)?map[payerOrMode]:hRatio*100;
 }
 
 function payerLabel(p){
   if(!p)return'—';
   if(p.startsWith('ratio_'))return`⚖️ ${ratioToLabel(p.slice(6))}`;
-  return{half:'👫 共同(50:50)',auto:'👫 共同(収入比)',husband:'👨 夫のみ',wife:'👩 妻のみ'}[p]||p;
+  return{half:'👫 共同(50:50)',auto:'👫 共同(収入比)',auto_summer:'🌻 共同(夏ボーナス収入比)',auto_winter:'⛄ 共同(冬ボーナス収入比)',husband:'👨 夫のみ',wife:'👩 妻のみ'}[p]||p;
 }
 function payerBadge(p){
   if(!p)return'badge-auto';
   if(p.startsWith('ratio_'))return'badge-ratio';
-  return{half:'badge-half',auto:'badge-auto',husband:'badge-husband',wife:'badge-wife'}[p]||'badge-auto';
+  return{half:'badge-half',auto:'badge-auto',auto_summer:'badge-auto',auto_winter:'badge-auto',husband:'badge-husband',wife:'badge-wife'}[p]||'badge-auto';
 }
 
 function buildPayerOptions(current){
   const base=[
     {v:'half', l:'👫 共同（50:50）'},
     {v:'auto', l:'👫 共同（収入比）'},
+    {v:'auto_summer', l:'🌻 共同（夏ボーナス収入比）'},
+    {v:'auto_winter', l:'⛄ 共同（冬ボーナス収入比）'},
     {v:'husband',l:'👨 夫のみ'},
     {v:'wife',   l:'👩 妻のみ'},
   ];
@@ -691,6 +703,12 @@ function buildPayerOptions(current){
   });
   return html;
 }
+function buildModeOptions(current){
+  // 費用項目の選択肢を、サブスク・保険・貯蓄投資と共通のbuildPayerOptions()ベースに統一し、
+  // 費用項目だけの機能である「固定割合を手動入力」だけを末尾に追加する
+  return buildPayerOptions(current) + `<option value="fixed" ${current==='fixed'?'selected':''}>✏️ 固定割合を手動入力</option>`;
+}
+
 function buildModeOptions(current){
   let html=`<option value="auto" ${current==='auto'?'selected':''}>収入比で自動計算</option><option value="fixed" ${current==='fixed'?'selected':''}>固定割合を手動入力</option>`;
   (masterData.ratios||[]).forEach(r=>{
@@ -856,13 +874,24 @@ function getFormData(){
     payer:r.querySelector('.sav-payer-sel').value,
     account:r.querySelector('.sav-account-sel').value||''
   }));
-  return{h:document.getElementById('husbandIncome').value,w:document.getElementById('wifeIncome').value,rows,subs,ins,savs,updatedAt:Date.now()};
+  return{
+    h:document.getElementById('husbandIncome').value,
+    w:document.getElementById('wifeIncome').value,
+    hSummer:document.getElementById('husbandSummerIncome').value,
+    wSummer:document.getElementById('wifeSummerIncome').value,
+    hWinter:document.getElementById('husbandWinterIncome').value,
+    wWinter:document.getElementById('wifeWinterIncome').value,
+    rows,subs,ins,savs,updatedAt:Date.now()
+  };
 }
-
 function applyData(data){
   if(!data)return;
   document.getElementById('husbandIncome').value=data.h||'';
   document.getElementById('wifeIncome').value=data.w||'';
+  document.getElementById('husbandSummerIncome').value=data.hSummer||'';
+  document.getElementById('wifeSummerIncome').value=data.wSummer||'';
+  document.getElementById('husbandWinterIncome').value=data.hWinter||'';
+  document.getElementById('wifeWinterIncome').value=data.wWinter||'';
   const rowsArr=(data.rows&&data.rows.length)?data.rows:DEFAULT_ITEMS;
   document.getElementById('expenseList').innerHTML='';
   rowsArr.forEach((r,i)=>addRow(r,i,rowsArr.length));
@@ -1051,19 +1080,20 @@ async function pushToFirebase(){
   try{await fbPut(CURRENT_PATH,data);setSyncStatus('saved');document.getElementById('saveStatus').textContent='💾 '+new Date().toLocaleTimeString('ja-JP')+' に自動保存しました';}
   catch(e){setSyncStatus('error');document.getElementById('saveStatus').textContent='⚠️ 同期に失敗しました（この端末には保存済みです）';}
 }
-document.addEventListener('input',e=>{if(e.target.matches('.exp-name,.exp-amount,.exp-h-pct,.exp-w-pct,.sub-name,.sub-amount,.ins-name,.ins-amount,.sav-name,.sav-amount,#husbandIncome,#wifeIncome'))scheduleAutoSave();});
+document.addEventListener('input',e=>{if(e.target.matches('.exp-name,.exp-amount,.exp-h-pct,.exp-w-pct,.sub-name,.sub-amount,.ins-name,.ins-amount,.sav-name,.sav-amount,#husbandIncome,#wifeIncome,#husbandSummerIncome,#wifeSummerIncome,#husbandWinterIncome,#wifeWinterIncome'))scheduleAutoSave();});
 document.addEventListener('change',e=>{if(e.target.matches('.exp-cycle,.exp-mode,.sub-cycle,.sub-payer,.sub-interval,.sub-start-month,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel,.sav-cycle,.sav-payer-sel,.sav-account-sel,.sav-include-sel'))scheduleAutoSave();});
 
 
 function tryAutoCalculate(){const h=parseFloat(document.getElementById('husbandIncome').value)||0;const w=parseFloat(document.getElementById('wifeIncome').value)||0;if(h+w>0)calculate(false);}
-
-function calcRatios(hIncome,wIncome,rows){
+function calcRatios(hIncome,wIncome,rows,hSummerIncome=0,wSummerIncome=0,hWinterIncome=0,wWinterIncome=0){
   const total=hIncome+wIncome,hRatio=total>0?hIncome/total:0;
+  const summerTotal=hSummerIncome+wSummerIncome,hSummerRatio=summerTotal>0?hSummerIncome/summerTotal:hRatio;
+  const winterTotal=hWinterIncome+wWinterIncome,hWinterRatio=winterTotal>0?hWinterIncome/winterTotal:hRatio;
   let totalMonthly=0,totalH=0,totalW=0,sTotal=0,sH=0,sW=0,wnTotal=0,wnH=0,wnW=0,yTotal=0,yH=0,yW=0;
   const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[];
   (rows||[]).forEach(r=>{
     const amount=parseFloat(r.amount)||0;if(amount<=0)return;
-    const hPct=resolveHPct(r.mode,hRatio,r.hPct),wPct=100-hPct;
+    const hPct=resolveHPct(r.mode,hRatio,hSummerRatio,hWinterRatio,r.hPct),wPct=100-hPct;
     if(r.cycle==='bonus_summer'||r.cycle==='bonus_winter'){
       const hB=amount*hPct/100,wB=amount*wPct/100;
       const item={name:r.name,amount,hVal:hB,wVal:wB,mode:r.mode,hPct,account:r.account||''};
@@ -1082,10 +1112,10 @@ function calcRatios(hIncome,wIncome,rows){
     totalMonthly+=monthly;totalH+=hM;totalW+=wM;
     monthlyItems.push({name:r.name,monthly,hM,wM,cycle:r.cycle,mode:r.mode,hPct,account:r.account||''});
   });
-  return{hRatio,totalMonthly,totalH,totalW,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
+  return{hRatio,hSummerRatio,hWinterRatio,totalMonthly,totalH,totalW,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
 }
 
-function calcSubs(subsData,hRatio){
+function calcSubs(subsData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
   let mTotal=0,mH=0,mW=0, yTotal=0,yH=0,yW=0, pTotal=0,pH=0,pW=0;
   const mDetails=[], yDetails=[], pDetails=[];
   const now=new Date();
@@ -1093,7 +1123,7 @@ function calcSubs(subsData,hRatio){
   (subsData||[]).forEach(s=>{
     const rawAmount=parseFloat(s.amount)||0;if(rawAmount<=0)return;
     const cycle=s.cycle||'monthly';
-    const hPct=resolveHPct(s.payer,hRatio,50);
+    const hPct=resolveHPct(s.payer,hRatio,hSummerRatio,hWinterRatio,50);
     const hVal=rawAmount*hPct/100, wVal=rawAmount*(100-hPct)/100;
     if(cycle==='yearly'){
       yTotal+=rawAmount; yH+=hVal; yW+=wVal;
@@ -1114,25 +1144,25 @@ function calcSubs(subsData,hRatio){
   return{mTotal,mH,mW,yTotal,yH,yW,pTotal,pH,pW,mDetails,yDetails,pDetails};
 }
 
-function calcIns(insData,hRatio){
+function calcIns(insData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
   let insTotal=0,insH=0,insW=0;const details=[];
   (insData||[]).forEach(i=>{
     const amount=parseFloat(i.amount)||0;if(amount<=0)return;
-    const hPct=resolveHPct(i.payer,hRatio,50);
+    const hPct=resolveHPct(i.payer,hRatio,hSummerRatio,hWinterRatio,50);
     const hVal=amount*hPct/100,wVal=amount*(100-hPct)/100;
     insTotal+=amount;insH+=hVal;insW+=wVal;
     details.push({name:i.name||'（無題）',type:i.type||'',company:i.company||'',amount,hVal,wVal,label:payerLabel(i.payer),badgeCls:payerBadge(i.payer),account:i.account||''});
   });
   return{insTotal,insH,insW,details};
 }
-function calcSavs(hRatio,savsData){
+function calcSavs(hRatio,savsData,hSummerRatio=hRatio,hWinterRatio=hRatio){
   let mTotal=0,mH=0,mW=0;          // 最終負担に反映される分（includeInFinal=true の毎月項目のみ）
   let mTotalAll=0,mHAll=0,mWAll=0; // 毎月項目の全体合計（含める/含めない問わず）
   let sTotal=0,sH=0,sW=0, wnTotal=0,wnH=0,wnW=0, yTotal=0,yH=0,yW=0;
   const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[];
   (savsData||[]).forEach(s=>{
     const amount=parseFloat(s.amount)||0;if(amount<=0)return;
-    const hPct=resolveHPct(s.payer,hRatio,50);
+    const hPct=resolveHPct(s.payer,hRatio,hSummerRatio,hWinterRatio,50);
     const hVal=amount*hPct/100, wVal=amount*(100-hPct)/100;
     const include=(s.includeInFinal==='true');
     const item={name:s.name||'（無題）',amount,hVal,wVal,include,payer:s.payer,account:s.account||'',isSaving:true};
@@ -1215,12 +1245,16 @@ function calcPersonPeriodAccounts(res, subs, ins, savs){
 function calculate(autoSwitch=true){
   const hIncome=parseFloat(document.getElementById('husbandIncome').value)||0;
   const wIncome=parseFloat(document.getElementById('wifeIncome').value)||0;
+  const hSummerIncome=parseFloat(document.getElementById('husbandSummerIncome').value)||0;
+  const wSummerIncome=parseFloat(document.getElementById('wifeSummerIncome').value)||0;
+  const hWinterIncome=parseFloat(document.getElementById('husbandWinterIncome').value)||0;
+  const wWinterIncome=parseFloat(document.getElementById('wifeWinterIncome').value)||0;
   if(hIncome+wIncome<=0){showToast('⚠️ 夫婦どちらかの収入を入力してください。');return;}
   const fd=getFormData();
-  const res=calcRatios(hIncome,wIncome,fd.rows);
-  const subs=calcSubs(fd.subs,res.hRatio);
-  const ins=calcIns(fd.ins,res.hRatio);
-  const savs=calcSavs(res.hRatio,fd.savs);
+  const res=calcRatios(hIncome,wIncome,fd.rows,hSummerIncome,wSummerIncome,hWinterIncome,wWinterIncome);
+  const subs=calcSubs(fd.subs,res.hRatio,res.hSummerRatio,res.hWinterRatio);
+  const ins=calcIns(fd.ins,res.hRatio,res.hSummerRatio,res.hWinterRatio);
+  const savs=calcSavs(res.hRatio,fd.savs,res.hSummerRatio,res.hWinterRatio);
   const grandH=res.totalH+subs.mH+ins.insH+savs.mH;
   const grandW=res.totalW+subs.mW+ins.insW+savs.mW;
   lastCalcResult={hIncome,wIncome,...res,subs,ins,savs};
