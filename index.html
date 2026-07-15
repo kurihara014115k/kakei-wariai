@@ -10,7 +10,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="家計アプリ"/>
 <link rel="apple-touch-icon" href="yuito.PNG">
-">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -157,8 +156,20 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .transfer-person-title { font-size: 1rem; font-weight: 800; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; }
 .transfer-person-title.husband { background: linear-gradient(135deg,#667eea22,#764ba222); color: #5a6fd6; border-left: 4px solid #667eea; }
 .transfer-person-title.wife    { background: linear-gradient(135deg,#f093fb22,#f5576c22); color: #e0457a; border-left: 4px solid #f5576c; }
-.transfer-period-block { margin-bottom: 16px; padding-left: 10px; border-left: 2px dashed #e0e0f0; }
-.transfer-period-title { display:flex; justify-content:space-between; font-size:0.9rem; font-weight:700; color:#555; margin-bottom:8px; padding-bottom:4px; border-bottom:1px dashed #ddd; }
+.transfer-period-block { margin-bottom: 24px; padding-left: 0; border-left: none; }
+.transfer-period-title {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:0.95rem; font-weight:800; color:white;
+  margin-bottom:12px; padding:11px 16px; border-radius:10px;
+  letter-spacing:0.02em;
+  text-shadow:0 1px 3px rgba(0,0,0,0.25);
+  box-shadow:0 3px 10px rgba(0,0,0,0.12);
+}
+.transfer-period-title.pt-monthly      { background:linear-gradient(135deg,#667eea,#764ba2); }
+.transfer-period-title.pt-bonus_summer { background:linear-gradient(135deg,#ff9800,#e65100); }
+.transfer-period-title.pt-bonus_winter { background:linear-gradient(135deg,#42a5f5,#1565c0); }
+.transfer-period-title.pt-yearly_lump  { background:linear-gradient(135deg,#e53935,#e35d5b); }
+.transfer-period-title.pt-periodic     { background:linear-gradient(135deg,#7c4dff,#5e35b1); }
 .transfer-acct-item { background:#fffdf5; border:1px solid #ffe082; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
 .transfer-acct-item.paid { background:linear-gradient(135deg,#e8f5e9,#f1f8e9); border-color:#a5d6a7; }
 .transfer-acct-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
@@ -1517,7 +1528,8 @@ function renderPersonPeriodSummary(ppData){
       const periodTotal = acctNames.reduce((s,a)=>s+accts[a].total,0);
 
       html += `<div class="transfer-period-block">
-        <div class="transfer-period-title"><span>${periodLabel(periodKey)}</span><span>合計：${fmt(periodTotal)}</span></div>`;
+        <div class="transfer-period-title pt-${periodKey}"><span>${periodLabel(periodKey)}</span><span>合計：${fmt(periodTotal)}</span></div>`;
+
 
       acctNames.forEach((acctName,idx)=>{
         const acctData = accts[acctName];
