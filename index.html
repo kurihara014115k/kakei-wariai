@@ -487,6 +487,22 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">「📊 結果」タブ内の各セクションの表示順を変更できます（この端末だけの設定です）。</p>
       <div class="order-list" id="resOrderList"></div>
     </div>
+        <div class="card">
+      <h2>📆 家計の締め日（起算日）</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">
+        費用項目・サブスク・保険・貯蓄投資のうち「毎月払い」「年÷12」など日のみで期限を指定する項目について、
+        この起算日を基準にした締めサイクルで期限を判定します。<br>
+        例：16に設定すると「16日〜翌15日」が1サイクルになり、16以上の日付は「今月扱い」、
+        16未満の日付は「翌月扱い」になります（10日に設定すると翌月10日として扱われるため、16日より後の期限になります）。<br>
+        月＋日を指定するボーナス・年一括払い・年払いサブスクの期限には影響しません。夫婦間で共有されます。
+      </p>
+      <select id="billingStartDaySelect" onchange="updateBillingStartDay(this.value)"
+        style="width:100%;padding:10px 14px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.95rem;outline:none;background:white;font-weight:600;color:#555;">
+      </select>
+    </div>
+    <div class="card">
+      <h2>⚖️ カスタム負担割合マスタ</h2>
+
     <div class="card">
       <h2>⚖️ カスタム負担割合マスタ</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:8px;">「夫の割合:妻の割合」の形式で登録します（例: 60:40 → 夫60% : 妻40%）。合計が100になるように入力してください。↑↓で表示順を変更できます。夫婦間で共有されます。</p>
@@ -555,7 +571,9 @@ let masterData={
   insTypes:    ['生命保険','医療保険','収入保障保険','がん保険'],
   insCompanies:['〇〇生命','△△生命','□□損保','◇◇保険'],
   ratios:      ['60:40'],
+  billingStartDay: 16, // ★追加：家計の締め日（起算日）。デフォルトは16日
 };
+
 let masterLoaded=false;
 
 function ratioToLabel(r){
@@ -659,7 +677,8 @@ function switchTab(tabId){
     document.getElementById('tabBtn-'+d.id).classList.toggle('active',d.id===tabId);
   });
   if(tabId==='result'&&lastCalcResult){setTimeout(()=>{if(pieChart)pieChart.resize();if(barChart)barChart.resize();},50);}
-  if(tabId==='settings'){renderOrderSettings();renderMasterLists();}
+  if(tabId==='settings'){renderOrderSettings();renderMasterLists();renderBillingStartDaySetting();}
+
   if(tabId==='history'){loadHistoryList();}
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -792,6 +811,21 @@ function renderMasterLists(){
   renderOneMasterList('insTypes','masterInsTypeList');
   renderOneMasterList('insCompanies','masterInsCompanyList');
 }
+function renderBillingStartDaySetting(){
+  const sel=document.getElementById('billingStartDaySelect');
+  if(!sel) return;
+  const current = masterData.billingStartDay || 16;
+  sel.innerHTML = Array.from({length:31},(_,i)=>i+1)
+    .map(d=>`<option value="${d}" ${current===d?'selected':''}>${d}日</option>`).join('');
+}
+
+function updateBillingStartDay(val){
+  masterData.billingStartDay = parseInt(val) || 16;
+  saveMaster();
+  showToast(`✅ 家計の締め日を「${masterData.billingStartDay}日」始まりに設定しました`);
+  if(lastCalcResult) calculate(false); // 期限バッジ・並び替えを即時に反映する
+}
+
 function renderOneMasterList(key,elId){
   const el=document.getElementById(elId);
   if(!masterData[key]||!masterData[key].length){el.innerHTML='<div class="master-empty">まだ登録されていません</div>';return;}
@@ -1296,11 +1330,18 @@ function calcDueScore(dueDay, dueMonth){
   const month = parseInt(dueMonth)||0;
   let target;
   if(!month){
-    // 月々：今月の day 日を基準にする。すでに過ぎていたら来月に繰り越す
-    target = new Date(now.getFullYear(), now.getMonth(), day);
-    if(target < now) target = new Date(now.getFullYear(), now.getMonth()+1, day);
+    // 毎月払い・年÷12：家計の締め日（起算日）を基準に、日付がどちらの暦月に属するかを判定する
+    const startDay = masterData.billingStartDay || 16;
+    const monthOffset = (day < startDay) ? 1 : 0; // 起算日より前の日付は「翌月扱い」にする
+    let y = now.getFullYear();
+    let m = now.getMonth() + monthOffset;
+    target = new Date(y, m, day);
+    while(target < now){ // 過ぎていたら1サイクル（1ヶ月）先に繰り越す
+      m += 1;
+      target = new Date(y, m, day);
+    }
   }else{
-    // ボーナス・年一括：今年の month月day日を基準にする。すでに過ぎていたら来年に繰り越す
+    // ボーナス・年一括・年払いサブスク：月＋日が明示されているため従来どおり
     target = new Date(now.getFullYear(), month-1, day);
     if(target < now) target = new Date(now.getFullYear()+1, month-1, day);
   }
@@ -1984,7 +2025,9 @@ async function init(){
       if(masterDb.insTypes)masterData.insTypes=toArray(masterDb.insTypes);
       if(masterDb.insCompanies)masterData.insCompanies=toArray(masterDb.insCompanies);
       if(masterDb.ratios)masterData.ratios=toArray(masterDb.ratios);
+      if(masterDb.billingStartDay) masterData.billingStartDay = parseInt(masterDb.billingStartDay)||16; // ★追加
     }
+
   }catch(e){}
   masterLoaded=true;
   renderMasterLists();
@@ -2011,8 +2054,10 @@ async function init(){
     if(d.insTypes)masterData.insTypes=toArray(d.insTypes);
     if(d.insCompanies)masterData.insCompanies=toArray(d.insCompanies);
     if(d.ratios)masterData.ratios=toArray(d.ratios);
-    renderMasterLists();refreshAllDropdowns();
+    if(d.billingStartDay) masterData.billingStartDay = parseInt(d.billingStartDay)||16; // ★追加
+    renderMasterLists();refreshAllDropdowns();renderBillingStartDaySetting(); // ★renderBillingStartDaySetting()を追加
   });
+
   fbListenSSEStable(CURRENT_PATH,event=>{
     if(!event||!event.data||!event.data.rows)return;
     applyData(event.data);tryAutoCalculate();setSyncStatus('ok');
