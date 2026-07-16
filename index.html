@@ -268,6 +268,11 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .sav-cycle,.sav-payer-sel,.sav-account-sel,.sav-include-sel { padding:8px 10px; border:2px solid #a5d6a7; border-radius:8px; font-size:0.83rem; min-width:150px; outline:none; background:white; }
 .sub-periodic-extra { display:flex; gap:6px; align-items:center; font-size:0.8rem; color:#5e35b1; background:#f3f0ff; border:1px dashed #d9cfff; border-radius:8px; padding:6px 10px; }
 .sub-periodic-extra select { padding:4px 6px; border:1px solid #d9cfff; border-radius:6px; font-size:0.8rem; }
+.due-date-wrap-inner { display:flex; align-items:center; gap:4px; font-size:0.78rem; color:#888; white-space:nowrap; background:#fff; border:1px dashed #ffab91; border-radius:8px; padding:5px 8px; }
+.due-date-wrap-inner select { padding:4px 6px; border:1.5px solid #e0e0f0; border-radius:6px; font-size:0.8rem; outline:none; }
+.badge-urgent { background:linear-gradient(135deg,#ff5252,#e53935); }
+.badge-soon   { background:linear-gradient(135deg,#ffb300,#f57f17); }
+
 @media print {
   body { background:white !important; }
   .tab-bar { display:none !important; }
@@ -455,12 +460,23 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
     </div>
   </div>
 
-  <div class="tab-content" id="tab-settings">
+   <div class="tab-content" id="tab-settings">
+    <div class="card">
+      <h2>🏠 起動時に開くタブ</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">アプリを開いたときに最初に表示するタブを選べます（この端末だけの設定です）。</p>
+      <select id="defaultTabSelect" onchange="saveDefaultTab(this.value)" style="width:100%;padding:10px 14px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.95rem;outline:none;background:white;font-weight:600;color:#555;">
+        <option value="input">📋 入力</option>
+        <option value="result">📊 結果</option>
+        <option value="history">📅 履歴</option>
+        <option value="settings">⚙️ 設定</option>
+      </select>
+    </div>
     <div class="card">
       <h2>📑 タブの並び替え</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">この端末だけの表示順です。</p>
       <div class="order-list" id="tabOrderList"></div>
     </div>
+
     <div class="card">
       <h2>📋 入力画面のカード並び替え</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">「📋 入力」タブ内のカードの表示順を変更できます（この端末だけの設定です）。</p>
@@ -649,7 +665,20 @@ function switchTab(tabId){
 }
 
 function baseUrl(){return FIREBASE_URL.replace(/\/$/,'');}
-async function fbGet(path){const r=await fetch(`${baseUrl()}/${path}.json`);if(!r.ok)throw new Error('fbGet failed');return r.json();}
+async function fbGet(path){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),10000); // 10秒待って応答がなければ諦める
+  try{
+    const r=await fetch(`${baseUrl()}/${path}.json`,{signal:controller.signal});
+    clearTimeout(timer);
+    if(!r.ok)throw new Error('fbGet failed');
+    return r.json();
+  }catch(e){
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
 async function fbPut(path,data){const r=await fetch(`${baseUrl()}/${path}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok)throw new Error('fbPut failed');return r.json();}
 async function fbPost(path,data){const r=await fetch(`${baseUrl()}/${path}.json`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok)throw new Error('fbPost failed');return r.json();}
 async function fbDelete(path){const r=await fetch(`${baseUrl()}/${path}.json`,{method:'DELETE'});if(!r.ok)throw new Error('fbDelete failed');}
@@ -856,42 +885,67 @@ async function toggleTransferPaid(acct,period,person,checked,cbEl){
 
 function getFormData(){
   const rows=[],subs=[],ins=[],savs=[];
-   document.querySelectorAll('#expenseList .expense-row').forEach(r=>rows.push({
-    name:r.querySelector('.exp-name').value,
-    amount:r.querySelector('.exp-amount').value,
-    cycle:r.querySelector('.exp-cycle').value,
-    mode:r.querySelector('.exp-mode').value,
-    hPct:50,
-    account:r.querySelector('.account-sel').value||''
-  }));
+     function readDue(row){
+    const dayEl=row.querySelector('.due-day');
+    const monEl=row.querySelector('.due-month');
+    return{
+      dueDay: dayEl && dayEl.value ? dayEl.value : '',
+      dueMonth: monEl && monEl.value ? monEl.value : ''
+    };
+  }
+  document.querySelectorAll('#expenseList .expense-row').forEach(r=>{
+    const due=readDue(r);
+    rows.push({
+      name:r.querySelector('.exp-name').value,
+      amount:r.querySelector('.exp-amount').value,
+      cycle:r.querySelector('.exp-cycle').value,
+      mode:r.querySelector('.exp-mode').value,
+      hPct:50,
+      account:r.querySelector('.account-sel').value||'',
+      dueDay:due.dueDay, dueMonth:due.dueMonth
+    });
+  });
+  document.querySelectorAll('#subList .sub-row').forEach(r=>{
+    const due=readDue(r);
+    subs.push({
+      name:r.querySelector('.sub-name').value,
+      amount:r.querySelector('.sub-amount').value,
+      cycle:r.querySelector('.sub-cycle').value,
+      interval:r.querySelector('.sub-interval')?r.querySelector('.sub-interval').value:'3',
+      startMonth:r.querySelector('.sub-start-month')?r.querySelector('.sub-start-month').value:'1',
+      payer:r.querySelector('.sub-payer').value,
+      account:r.querySelector('.sub-account-sel').value||'',
+      dueDay:due.dueDay, dueMonth:due.dueMonth
+    });
+  });
+  document.querySelectorAll('#insList .ins-row').forEach(r=>{
+    const due=readDue(r);
+    ins.push({
+      name:r.querySelector('.ins-name').value,
+      type:r.querySelector('.ins-type-sel').value,
+      company:r.querySelector('.ins-company-sel').value,
+      amount:r.querySelector('.ins-amount').value,
+      payer:r.querySelector('.ins-payer-sel').value,
+      account:r.querySelector('.ins-account-sel').value||'',
+      dueDay:due.dueDay, dueMonth:due.dueMonth
+    });
+  });
+    document.querySelectorAll('#savList .sav-row').forEach(r=>{
+    const due=readDue(r);
+    savs.push({
+      name:r.querySelector('.sav-name').value,
+      amount:r.querySelector('.sav-amount').value,
+      cycle:r.querySelector('.sav-cycle').value,
+      includeInFinal:r.querySelector('.sav-include-sel').value,
+      payer:r.querySelector('.sav-payer-sel').value,
+      account:r.querySelector('.sav-account-sel').value||'',
+      dueDay:due.dueDay, dueMonth:due.dueMonth
+    });
+  });
 
-  document.querySelectorAll('#subList .sub-row').forEach(r=>subs.push({
-    name:r.querySelector('.sub-name').value,
-    amount:r.querySelector('.sub-amount').value,
-    cycle:r.querySelector('.sub-cycle').value,
-    interval:r.querySelector('.sub-interval')?r.querySelector('.sub-interval').value:'3',
-    startMonth:r.querySelector('.sub-start-month')?r.querySelector('.sub-start-month').value:'1',
-    payer:r.querySelector('.sub-payer').value,
-    account:r.querySelector('.sub-account-sel').value||''
-  }));
-  document.querySelectorAll('#insList .ins-row').forEach(r=>ins.push({
-    name:r.querySelector('.ins-name').value,
-    type:r.querySelector('.ins-type-sel').value,
-    company:r.querySelector('.ins-company-sel').value,
-    amount:r.querySelector('.ins-amount').value,
-    payer:r.querySelector('.ins-payer-sel').value,
-    account:r.querySelector('.ins-account-sel').value||''
-  }));
-  document.querySelectorAll('#savList .sav-row').forEach(r=>savs.push({
-    name:r.querySelector('.sav-name').value,
-    amount:r.querySelector('.sav-amount').value,
-    cycle:r.querySelector('.sav-cycle').value,
-    includeInFinal:r.querySelector('.sav-include-sel').value,
-    payer:r.querySelector('.sav-payer-sel').value,
-    account:r.querySelector('.sav-account-sel').value||''
-  }));
-  return{
+    return{
     h:document.getElementById('husbandIncome').value,
+
     w:document.getElementById('wifeIncome').value,
     hSummer:document.getElementById('husbandSummerIncome').value,
     wSummer:document.getElementById('wifeSummerIncome').value,
@@ -900,6 +954,7 @@ function getFormData(){
     rows,subs,ins,savs,updatedAt:Date.now()
   };
 }
+
 function applyData(data){
   if(!data)return;
   document.getElementById('husbandIncome').value=data.h||'';
@@ -937,7 +992,7 @@ function addRow(data,idx,total){
     </div>
     <div class="expense-row-body">
       <div class="exp-amount-wrap"><input type="number" class="exp-amount" min="0" value="${data.amount||''}" placeholder="金額"><span>円</span></div>
-      <select class="exp-cycle">
+      <select class="exp-cycle" onchange="refreshDueDateWrap(this.closest('.expense-row-body'), this.value==='monthly'||this.value==='yearly')">
         <option value="monthly" ${data.cycle==='monthly'?'selected':''}>毎月払い</option>
         <option value="yearly" ${data.cycle==='yearly'?'selected':''}>年1回（÷12月割り）</option>
         <option value="bonus_summer" ${data.cycle==='bonus_summer'?'selected':''}>🌻 夏ボーナス払い</option>
@@ -946,9 +1001,11 @@ function addRow(data,idx,total){
       </select>
       <select class="exp-mode">${buildModeOptions(data.mode)}</select>
       <select class="account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+      <div class="due-date-wrap">${buildDueDateInput(!data.cycle||data.cycle==='monthly'||data.cycle==='yearly', data.dueDay||'', data.dueMonth||'')}</div>
     </div>`;
   document.getElementById('expenseList').appendChild(div);
 }
+
 
 
 function removeExpenseRow(btn){const data=getFormData();const row=btn.closest('.expense-row');const idx=Array.from(document.querySelectorAll('#expenseList .expense-row')).indexOf(row);data.rows.splice(idx,1);applyData(data);scheduleAutoSave();}
@@ -973,11 +1030,12 @@ function addSubRow(data,idx,total){
     </div>
     <div class="sub-row-body">
       <div class="sub-amount-wrap"><input type="number" class="sub-amount" min="0" value="${data.amount||''}" placeholder="${amountPlaceholder}"><span>円</span></div>
-      <select class="sub-cycle" onchange="updateSubAmountPlaceholder(this)">
+            <select class="sub-cycle" onchange="updateSubAmountPlaceholder(this);refreshDueDateWrap(this.closest('.sub-row-body'), this.value==='monthly');">
         <option value="monthly" ${subCycle==='monthly'?'selected':''}>📅 毎月払い</option>
         <option value="yearly" ${subCycle==='yearly'?'selected':''}>📆 年1回（一括・月額には含めない）</option>
         <option value="periodic" ${subCycle==='periodic'?'selected':''}>🔁 Nヶ月ごとの定期払い（一括・月額には含めない）</option>
       </select>
+
       <div class="sub-periodic-extra ${subCycle==='periodic'?'':'hidden'}">
         <span>頻度</span>
         <select class="sub-interval">
@@ -992,9 +1050,11 @@ function addSubRow(data,idx,total){
         </select>
       </div>
       <select class="sub-payer">${buildPayerOptions(data.payer)}</select>
-      <select class="sub-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+            <select class="sub-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+      <div class="due-date-wrap">${buildDueDateInput(subCycle==='monthly', data.dueDay||'', data.dueMonth||'')}</div>
     </div>`;
   document.getElementById('subList').appendChild(div);
+
 }
 
 function updateSubAmountPlaceholder(selectEl){
@@ -1027,9 +1087,11 @@ function addInsRow(data,idx,total){
       <select class="ins-type-sel">${buildOptions(masterData.insTypes,data.type,'種別を選択')}</select>
       <select class="ins-company-sel">${buildOptions(masterData.insCompanies,data.company,'保険会社を選択')}</select>
       <select class="ins-payer-sel">${buildPayerOptions(data.payer)}</select>
-      <select class="ins-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+            <select class="ins-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+      <div class="due-date-wrap">${buildDueDateInput(true, data.dueDay||'', '')}</div>
     </div>`;
   document.getElementById('insList').appendChild(div);
+
 }
 function removeInsRow(btn){const data=getFormData();const row=btn.closest('.ins-row');const idx=Array.from(document.querySelectorAll('#insList .ins-row')).indexOf(row);data.ins.splice(idx,1);applyData(data);scheduleAutoSave();}
 function addNewInsRow(){const data=getFormData();data.ins.push({name:'',type:'',company:'',amount:'',payer:'husband',account:''});applyData(data);scheduleAutoSave();}
@@ -1048,18 +1110,20 @@ function addSavRow(data,idx,total){
     </div>
     <div class="sav-row-body">
       <div class="sav-amount-wrap"><input type="number" class="sav-amount" min="0" value="${data.amount||''}" placeholder="金額"><span>円</span></div>
-      <select class="sav-cycle">
+        <select class="sav-cycle" onchange="refreshDueDateWrap(this.closest('.sav-row-body'), this.value==='monthly')">
         <option value="monthly" ${data.cycle==='monthly'?'selected':''}>📅 毎月</option>
         <option value="bonus_summer" ${data.cycle==='bonus_summer'?'selected':''}>🌻 夏ボーナス</option>
         <option value="bonus_winter" ${data.cycle==='bonus_winter'?'selected':''}>⛄ 冬ボーナス</option>
         <option value="yearly_lump" ${data.cycle==='yearly_lump'?'selected':''}>📆 年1回・一括</option>
       </select>
+
       <select class="sav-include-sel">
         <option value="false" ${data.includeInFinal!=='true'?'selected':''}>最終負担に含めない</option>
         <option value="true" ${data.includeInFinal==='true'?'selected':''}>最終負担に含める</option>
       </select>
       <select class="sav-payer-sel">${buildPayerOptions(data.payer)}</select>
-      <select class="sav-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+            <select class="sav-account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
+      <div class="due-date-wrap">${buildDueDateInput((data.cycle||'monthly')==='monthly', data.dueDay||'', data.dueMonth||'')}</div>
     </div>`;
   document.getElementById('savList').appendChild(div);
 }
@@ -1082,7 +1146,7 @@ async function pushToFirebase(){
   catch(e){setSyncStatus('error');document.getElementById('saveStatus').textContent='⚠️ 同期に失敗しました（この端末には保存済みです）';}
 }
 document.addEventListener('input',e=>{if(e.target.matches('.exp-name,.exp-amount,.exp-h-pct,.exp-w-pct,.sub-name,.sub-amount,.ins-name,.ins-amount,.sav-name,.sav-amount,#husbandIncome,#wifeIncome,#husbandSummerIncome,#wifeSummerIncome,#husbandWinterIncome,#wifeWinterIncome'))scheduleAutoSave();});
-document.addEventListener('change',e=>{if(e.target.matches('.exp-cycle,.exp-mode,.sub-cycle,.sub-payer,.sub-interval,.sub-start-month,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel,.sav-cycle,.sav-payer-sel,.sav-account-sel,.sav-include-sel'))scheduleAutoSave();});
+document.addEventListener('change',e=>{if(e.target.matches('.exp-cycle,.exp-mode,.sub-cycle,.sub-payer,.sub-interval,.sub-start-month,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel,.sav-cycle,.sav-payer-sel,.sav-account-sel,.sav-include-sel,.due-day,.due-month'))scheduleAutoSave();});
 
 
 function tryAutoCalculate(){const h=parseFloat(document.getElementById('husbandIncome').value)||0;const w=parseFloat(document.getElementById('wifeIncome').value)||0;if(h+w>0)calculate(false);}
@@ -1097,21 +1161,22 @@ function calcRatios(hIncome,wIncome,rows,hSummerIncome=0,wSummerIncome=0,hWinter
     const hPct=resolveHPct(r.mode,hRatio,hSummerRatio,hWinterRatio,r.hPct),wPct=100-hPct;
     if(r.cycle==='bonus_summer'||r.cycle==='bonus_winter'){
       const hB=amount*hPct/100,wB=amount*wPct/100;
-      const item={name:r.name,amount,hVal:hB,wVal:wB,mode:r.mode,hPct,account:r.account||''};
-      if(r.cycle==='bonus_summer'){sTotal+=amount;sH+=hB;sW+=wB;summerItems.push(item);}
-      else{wnTotal+=amount;wnH+=hB;wnW+=wB;winterItems.push(item);}
-      return;
-    }
-    if(r.cycle==='yearly_lump'){
-      const hY=amount*hPct/100,wY=amount*wPct/100;
-      yTotal+=amount;yH+=hY;yW+=wY;
-      lumpItems.push({name:r.name,amount,hY,wY,mode:r.mode,hPct,account:r.account||''});
-      return;
-    }
-    const monthly=r.cycle==='yearly'?amount/12:amount;
-    const hM=monthly*hPct/100,wM=monthly*wPct/100;
-    totalMonthly+=monthly;totalH+=hM;totalW+=wM;
-    monthlyItems.push({name:r.name,monthly,hM,wM,cycle:r.cycle,mode:r.mode,hPct,account:r.account||''});
+      const item={name:r.name,amount,hVal:hB,wVal:wB,mode:r.mode,hPct,account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth};
+    if(r.cycle==='bonus_summer'){sTotal+=amount;sH+=hB;sW+=wB;summerItems.push(item);}
+    else{wnTotal+=amount;wnH+=hB;wnW+=wB;winterItems.push(item);}
+    return;
+  }
+  if(r.cycle==='yearly_lump'){
+    const hY=amount*hPct/100,wY=amount*wPct/100;
+    yTotal+=amount;yH+=hY;yW+=wY;
+    lumpItems.push({name:r.name,amount,hY,wY,mode:r.mode,hPct,account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth});
+    return;
+  }
+  const monthly=r.cycle==='yearly'?amount/12:amount;
+  const hM=monthly*hPct/100,wM=monthly*wPct/100;
+  totalMonthly+=monthly;totalH+=hM;totalW+=wM;
+  monthlyItems.push({name:r.name,monthly,hM,wM,cycle:r.cycle,mode:r.mode,hPct,account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth});
+
   });
   return{hRatio,hSummerRatio,hWinterRatio,totalMonthly,totalH,totalW,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
 }
@@ -1128,19 +1193,35 @@ function calcSubs(subsData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
     const hVal=rawAmount*hPct/100, wVal=rawAmount*(100-hPct)/100;
     if(cycle==='yearly'){
       yTotal+=rawAmount; yH+=hVal; yW+=wVal;
-      yDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
+      yDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||'',dueDay:s.dueDay,dueMonth:s.dueMonth});
     }else if(cycle==='periodic'){
-      const interval=parseInt(s.interval,10)||3;
-      const startMonth=parseInt(s.startMonth,10)||1;
-      const diff=(currentMonth-startMonth+12)%12;
-      const isPayMonth=(diff%interval===0);
-      if(!isPayMonth) return; // 支払月でなければ完全に無視（表示・集計に一切含めない）
-      pTotal+=rawAmount; pH+=hVal; pW+=wVal;
-      pDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,interval,startMonth,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
-    }else{
+  const interval    = parseInt(s.interval)    || 3; // 2/3/4/6ヶ月ごと
+  const startMonth  = parseInt(s.startMonth)  || 1; // 起点月（1〜12）
+  const diff         = (currentMonth - startMonth + 12) % 12;
+  const isThisMonthPay = (diff % interval) === 0;   // 今月が支払月かどうか
+
+  if(isThisMonthPay){
+    pTotal += rawAmount; pH += hVal; pW += wVal;
+    pDetails.push({
+      name: s.name || '（無題）',
+      amount: rawAmount,
+      cycle,
+      interval: String(interval),
+      startMonth: String(startMonth),
+      hVal, wVal,
+      label: payerLabel(s.payer),
+      badgeCls: payerBadge(s.payer),
+      account: s.account || '',
+      dueDay: s.dueDay,
+      dueMonth: s.dueMonth
+    });
+  }
+}else{
+
       mTotal+=rawAmount; mH+=hVal; mW+=wVal;
-      mDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||''});
+      mDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||'',dueDay:s.dueDay,dueMonth:s.dueMonth});
     }
+
   });
   return{mTotal,mH,mW,yTotal,yH,yW,pTotal,pH,pW,mDetails,yDetails,pDetails};
 }
@@ -1152,7 +1233,8 @@ function calcIns(insData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
     const hPct=resolveHPct(i.payer,hRatio,hSummerRatio,hWinterRatio,50);
     const hVal=amount*hPct/100,wVal=amount*(100-hPct)/100;
     insTotal+=amount;insH+=hVal;insW+=wVal;
-    details.push({name:i.name||'（無題）',type:i.type||'',company:i.company||'',amount,hVal,wVal,label:payerLabel(i.payer),badgeCls:payerBadge(i.payer),account:i.account||''});
+    details.push({name:i.name||'（無題）',type:i.type||'',company:i.company||'',amount,hVal,wVal,label:payerLabel(i.payer),badgeCls:payerBadge(i.payer),account:i.account||'',dueDay:i.dueDay,dueMonth:i.dueMonth});
+
   });
   return{insTotal,insH,insW,details};
 }
@@ -1166,7 +1248,7 @@ function calcSavs(hRatio,savsData,hSummerRatio=hRatio,hWinterRatio=hRatio){
     const hPct=resolveHPct(s.payer,hRatio,hSummerRatio,hWinterRatio,50);
     const hVal=amount*hPct/100, wVal=amount*(100-hPct)/100;
     const include=(s.includeInFinal==='true');
-    const item={name:s.name||'（無題）',amount,hVal,wVal,include,payer:s.payer,account:s.account||'',isSaving:true};
+    const item={name:s.name||'（無題）',amount,hVal,wVal,include,payer:s.payer,account:s.account||'',isSaving:true,dueDay:s.dueDay,dueMonth:s.dueMonth};
     if(s.cycle==='bonus_summer'){sTotal+=amount;sH+=hVal;sW+=wVal;summerItems.push(item);return;}
     if(s.cycle==='bonus_winter'){wnTotal+=amount;wnH+=hVal;wnW+=wVal;winterItems.push(item);return;}
     if(s.cycle==='yearly_lump'){yTotal+=amount;yH+=hVal;yW+=wVal;lumpItems.push(item);return;}
@@ -1176,6 +1258,73 @@ function calcSavs(hRatio,savsData,hSummerRatio=hRatio,hWinterRatio=hRatio){
   });
   return{mTotal,mH,mW,mTotalAll,mHAll,mWAll,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
 }
+// ── 振込期限ヘルパー関数（ここから） ──────────────────────────
+
+// 期限入力欄のHTMLを作る。isDayOnly が true なら「日」だけ、false なら「月＋日」のプルダウンにする
+function buildDueDateInput(isDayOnly, dueDay, dueMonth){
+  const dayOpts = Array.from({length:31},(_,i)=>i+1)
+    .map(d=>`<option value="${d}" ${String(dueDay)===String(d)?'selected':''}>${d}日</option>`).join('');
+  if(isDayOnly){
+    return `<div class="due-date-wrap-inner">
+      <span>🗓期限</span>
+      <select class="due-day"><option value="">未設定</option>${dayOpts}</select>
+    </div>`;
+  }
+  const monthOpts = Array.from({length:12},(_,i)=>i+1)
+    .map(m=>`<option value="${m}" ${String(dueMonth)===String(m)?'selected':''}>${m}月</option>`).join('');
+  return `<div class="due-date-wrap-inner">
+    <span>🗓期限</span>
+    <select class="due-month"><option value="">未設定</option>${monthOpts}</select>
+    <select class="due-day"><option value="">未設定</option>${dayOpts}</select>
+  </div>`;
+}
+
+// サイクルを変更したときに、期限入力欄を「日だけ」⇔「月＋日」に切り替える
+function refreshDueDateWrap(rowBodyEl, isDayOnly){
+  if(!rowBodyEl) return;
+  const wrap = rowBodyEl.querySelector('.due-date-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = buildDueDateInput(isDayOnly, '', '');
+  scheduleAutoSave();
+}
+
+// 今日から期限まで残り何日かを計算する。未設定なら Infinity（無限大＝最後扱い）を返す
+function calcDueScore(dueDay, dueMonth){
+  const day = parseInt(dueDay)||0;
+  if(!day) return Infinity;
+  const now = new Date();
+  const month = parseInt(dueMonth)||0;
+  let target;
+  if(!month){
+    // 月々：今月の day 日を基準にする。すでに過ぎていたら来月に繰り越す
+    target = new Date(now.getFullYear(), now.getMonth(), day);
+    if(target < now) target = new Date(now.getFullYear(), now.getMonth()+1, day);
+  }else{
+    // ボーナス・年一括：今年の month月day日を基準にする。すでに過ぎていたら来年に繰り越す
+    target = new Date(now.getFullYear(), month-1, day);
+    if(target < now) target = new Date(now.getFullYear()+1, month-1, day);
+  }
+  return Math.ceil((target-now)/(1000*60*60*24));
+}
+
+function compareByDue(paidA, dueDayA, dueMonthA, paidB, dueDayB, dueMonthB){
+  if(paidA !== paidB) return paidA ? 1 : -1;
+  const scoreA = calcDueScore(dueDayA, dueMonthA);
+  const scoreB = calcDueScore(dueDayB, dueMonthB);
+  if(scoreA === Infinity && scoreB === Infinity) return 0;
+  return scoreA - scoreB;
+}
+
+
+// 期限のラベル文字列を作る（表示用）
+function dueDateLabel(dueDay, dueMonth){
+  const day = parseInt(dueDay)||0;
+  if(!day) return '';
+  const month = parseInt(dueMonth)||0;
+  return month ? `${month}月${day}日まで` : `${day}日まで`;
+}
+
+// ── 振込期限ヘルパー関数（ここまで） ──────────────────────────
 
 
 function calcPersonPeriodAccounts(res, subs, ins, savs){
@@ -1183,62 +1332,64 @@ function calcPersonPeriodAccounts(res, subs, ins, savs){
     h: { monthly:{}, bonus_summer:{}, bonus_winter:{}, yearly_lump:{}, periodic:{} },
     w: { monthly:{}, bonus_summer:{}, bonus_winter:{}, yearly_lump:{}, periodic:{} }
   };
-  function add(person, period, acct, name, val, category){
+    function add(person, period, acct, name, val, category, dueDay, dueMonth){
     if(!acct || val<=0) return;
     const map = result[person][period];
     if(!map[acct]) map[acct] = { total:0, items:[] };
     map[acct].total += val;
-    map[acct].items.push({ name, val, category });
+    map[acct].items.push({ name, val, category, dueDay:dueDay||'', dueMonth:dueMonth||'' });
   }
-  res.monthlyItems.forEach(i=>{
+
+    res.monthlyItems.forEach(i=>{
     const cat = i.cycle==='yearly' ? '📅年額÷12' : '📅毎月';
-    add('h','monthly',i.account,i.name,i.hM,cat);
-    add('w','monthly',i.account,i.name,i.wM,cat);
+    add('h','monthly',i.account,i.name,i.hM,cat,i.dueDay,i.dueMonth);
+    add('w','monthly',i.account,i.name,i.wM,cat,i.dueDay,i.dueMonth);
   });
   res.summerItems.forEach(i=>{
-    add('h','bonus_summer',i.account,i.name,i.hVal,'🌻夏ボーナス');
-    add('w','bonus_summer',i.account,i.name,i.wVal,'🌻夏ボーナス');
+    add('h','bonus_summer',i.account,i.name,i.hVal,'🌻夏ボーナス',i.dueDay,i.dueMonth);
+    add('w','bonus_summer',i.account,i.name,i.wVal,'🌻夏ボーナス',i.dueDay,i.dueMonth);
   });
   res.winterItems.forEach(i=>{
-    add('h','bonus_winter',i.account,i.name,i.hVal,'⛄冬ボーナス');
-    add('w','bonus_winter',i.account,i.name,i.wVal,'⛄冬ボーナス');
+    add('h','bonus_winter',i.account,i.name,i.hVal,'⛄冬ボーナス',i.dueDay,i.dueMonth);
+    add('w','bonus_winter',i.account,i.name,i.wVal,'⛄冬ボーナス',i.dueDay,i.dueMonth);
   });
   res.lumpItems.forEach(i=>{
-    add('h','yearly_lump',i.account,i.name,i.hY,'📆年一括');
-    add('w','yearly_lump',i.account,i.name,i.wY,'📆年一括');
+    add('h','yearly_lump',i.account,i.name,i.hY,'📆年一括',i.dueDay,i.dueMonth);
+    add('w','yearly_lump',i.account,i.name,i.wY,'📆年一括',i.dueDay,i.dueMonth);
   });
   subs.mDetails.forEach(s=>{
-    add('h','monthly',s.account,s.name,s.hVal,'📱サブスク(月)');
-    add('w','monthly',s.account,s.name,s.wVal,'📱サブスク(月)');
+    add('h','monthly',s.account,s.name,s.hVal,'📱サブスク(月)',s.dueDay,s.dueMonth);
+    add('w','monthly',s.account,s.name,s.wVal,'📱サブスク(月)',s.dueDay,s.dueMonth);
   });
   subs.yDetails.forEach(s=>{
-    add('h','yearly_lump',s.account,s.name,s.hVal,'📱サブスク(年)');
-    add('w','yearly_lump',s.account,s.name,s.wVal,'📱サブスク(年)');
+    add('h','yearly_lump',s.account,s.name,s.hVal,'📱サブスク(年)',s.dueDay,s.dueMonth);
+    add('w','yearly_lump',s.account,s.name,s.wVal,'📱サブスク(年)',s.dueDay,s.dueMonth);
   });
   subs.pDetails.forEach(s=>{
-    add('h','periodic',s.account,s.name,s.hVal,`📱サブスク(${s.interval}ヶ月ごと)`);
-    add('w','periodic',s.account,s.name,s.wVal,`📱サブスク(${s.interval}ヶ月ごと)`);
+    add('h','periodic',s.account,s.name,s.hVal,`📱サブスク(${s.interval}ヶ月ごと)`,s.dueDay,s.dueMonth);
+    add('w','periodic',s.account,s.name,s.wVal,`📱サブスク(${s.interval}ヶ月ごと)`,s.dueDay,s.dueMonth);
   });
   ins.details.forEach(i=>{
-    add('h','monthly',i.account,i.name,i.hVal,'🛡️保険');
-    add('w','monthly',i.account,i.name,i.wVal,'🛡️保険');
+    add('h','monthly',i.account,i.name,i.hVal,'🛡️保険',i.dueDay,i.dueMonth);
+    add('w','monthly',i.account,i.name,i.wVal,'🛡️保険',i.dueDay,i.dueMonth);
   });
   savs.monthlyItems.forEach(i=>{
-    add('h','monthly',i.account,i.name,i.hVal,'💰貯蓄・投資');
-    add('w','monthly',i.account,i.name,i.wVal,'💰貯蓄・投資');
+    add('h','monthly',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
+    add('w','monthly',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
   });
   savs.summerItems.forEach(i=>{
-    add('h','bonus_summer',i.account,i.name,i.hVal,'💰貯蓄・投資');
-    add('w','bonus_summer',i.account,i.name,i.wVal,'💰貯蓄・投資');
+    add('h','bonus_summer',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
+    add('w','bonus_summer',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
   });
   savs.winterItems.forEach(i=>{
-    add('h','bonus_winter',i.account,i.name,i.hVal,'💰貯蓄・投資');
-    add('w','bonus_winter',i.account,i.name,i.wVal,'💰貯蓄・投資');
+    add('h','bonus_winter',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
+    add('w','bonus_winter',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
   });
   savs.lumpItems.forEach(i=>{
-    add('h','yearly_lump',i.account,i.name,i.hVal,'💰貯蓄・投資');
-    add('w','yearly_lump',i.account,i.name,i.wVal,'💰貯蓄・投資');
+    add('h','yearly_lump',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
+    add('w','yearly_lump',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
   });
+
   return result;
 }
 
@@ -1531,15 +1682,49 @@ function renderPersonPeriodSummary(ppData){
         <div class="transfer-period-title pt-${periodKey}"><span>${periodLabel(periodKey)}</span><span>合計：${fmt(periodTotal)}</span></div>`;
 
 
-      acctNames.forEach((acctName,idx)=>{
+           // ▼▼▼ 追加：口座カードを「振込済みは最後・期限が近い順」に並び替える ▼▼▼
+      const sortedAcctNames = [...acctNames].sort((a,b)=>{
+        const paidA = isPaid(transferPaidKey(a, periodKey, person.key));
+        const paidB = isPaid(transferPaidKey(b, periodKey, person.key));
+        const minScoreA = Math.min(...accts[a].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
+        const minScoreB = Math.min(...accts[b].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
+        return compareByDue(paidA, null, null, paidB, null, null) || (minScoreA - minScoreB);
+      });
+      // 上のcompareByDueは振込済みの判定だけに使い、スコアはあらかじめ計算済みのminScoreを使う
+      sortedAcctNames.sort((a,b)=>{
+        const paidA = isPaid(transferPaidKey(a, periodKey, person.key));
+        const paidB = isPaid(transferPaidKey(b, periodKey, person.key));
+        if(paidA!==paidB) return paidA?1:-1;
+        const minScoreA = Math.min(...accts[a].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
+        const minScoreB = Math.min(...accts[b].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
+        return minScoreA - minScoreB;
+      });
+      // ▲▲▲ ここまで追加 ▲▲▲
+
+      sortedAcctNames.forEach((acctName,idx)=>{
         const acctData = accts[acctName];
         const paidKey = transferPaidKey(acctName, periodKey, person.key);
         const paid = isPaid(paidKey);
         const safeAcct = acctName.replace(/'/g,"\\'");
         const detailId = `td_${person.key}_${periodKey}_${idx}`;
-        const itemsRows = acctData.items.map(it=>
-          `<div class="detail-row"><span class="detail-row-name">${it.name} <span class="badge badge-cat">${it.category}</span></span><span class="detail-row-vals">${fmt(it.val)}</span></div>`
-        ).join('');
+
+        // ▼▼▼ 追加：明細項目も期限が近い順に並び替える ▼▼▼
+        const sortedItems = [...acctData.items].sort((a,b)=>calcDueScore(a.dueDay,a.dueMonth)-calcDueScore(b.dueDay,b.dueMonth));
+        // ▲▲▲ ここまで追加 ▲▲▲
+
+        const itemsRows = sortedItems.map(it=>{
+          const dlabel = dueDateLabel(it.dueDay, it.dueMonth);
+          const score = calcDueScore(it.dueDay, it.dueMonth);
+          const urgent = (!paid && dlabel && score<=3) ? `<span class="badge badge-urgent">⚠️あと${score}日</span>`
+            : (!paid && dlabel && score<=7) ? `<span class="badge badge-soon">🔔あと${score}日</span>` : '';
+          return `<div class="detail-row"><span class="detail-row-name">${it.name} <span class="badge badge-cat">${it.category}</span>${dlabel?`<span style="font-size:0.75rem;color:#e65100;font-weight:700;margin-left:4px;">🗓${dlabel}</span>`:''}${urgent}</span><span class="detail-row-vals">${fmt(it.val)}</span></div>`;
+        }).join('');
+
+        // 口座カードには、その中で最も近い期限を代表として表示する
+        const nearestLabel = (!paid && sortedItems.length) ? dueDateLabel(sortedItems[0].dueDay, sortedItems[0].dueMonth) : '';
+        const nearestScore = sortedItems.length ? calcDueScore(sortedItems[0].dueDay, sortedItems[0].dueMonth) : Infinity;
+        const acctUrgent = (!paid && nearestLabel && nearestScore<=3) ? `<span class="badge badge-urgent">⚠️あと${nearestScore}日</span>`
+          : (!paid && nearestLabel && nearestScore<=7) ? `<span class="badge badge-soon">🔔あと${nearestScore}日</span>` : '';
 
         html += `
           <div class="transfer-acct-item ${paid?'paid':''}">
@@ -1547,6 +1732,7 @@ function renderPersonPeriodSummary(ppData){
               <span class="transfer-acct-name">🏦 ${acctName}</span>
               <span class="transfer-acct-amount ${person.key==='h'?'husband-amount':'wife-amount'}">${fmt(acctData.total)}</span>
             </div>
+            ${nearestLabel ? `<div style="font-size:0.8rem;color:#e65100;font-weight:700;margin-bottom:6px;">🗓 最短期限：${nearestLabel} ${acctUrgent}</div>` : ''}
             <label class="acct-check-wrap">
               <input type="checkbox" ${paid?'checked':''} onchange="toggleTransferPaid('${safeAcct}','${periodKey}','${person.key}',this.checked,this)">
               振込済みにする（${monthKey()}分）
@@ -1555,6 +1741,7 @@ function renderPersonPeriodSummary(ppData){
             <div id="${detailId}" class="hidden">${itemsRows}</div>
           </div>`;
       });
+
 
       html += `</div>`;
     });
@@ -1770,11 +1957,28 @@ function printPDF(){if(!lastCalcResult){showToast('先に計算を実行して�
 function shareLink(){navigator.clipboard.writeText(window.location.href).then(()=>showToast('URLをコピーしました！')).catch(()=>showToast('コピーに失敗しました。'));}
 function showToast(msg,duration=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),duration);}
 
+const DEFAULT_TAB_KEY = 'kakeiboDefaultTab';
+
+function saveDefaultTab(tabId){
+  localStorage.setItem(DEFAULT_TAB_KEY, tabId);
+  const def = TAB_DEFS.find(d=>d.id===tabId);
+  showToast(`✅ 起動時に開くタブを「${def ? def.label : tabId}」に設定しました`);
+}
+
 async function init(){
-  loadOrders();applyOrders();switchTab('input');setSyncStatus('wait');
+  loadOrders();
+  applyOrders();
+
+  const startTabId = localStorage.getItem(DEFAULT_TAB_KEY) || 'input';
+  const defaultTabSel = document.getElementById('defaultTabSelect');
+  if(defaultTabSel) defaultTabSel.value = startTabId;
+  switchTab(startTabId);
+
+  setSyncStatus('wait');
 
   try{
     const masterDb=await fbGet(MASTER_PATH);
+
     if(masterDb){
       if(masterDb.accounts)masterData.accounts=toArray(masterDb.accounts);
       if(masterDb.insTypes)masterData.insTypes=toArray(masterDb.insTypes);
