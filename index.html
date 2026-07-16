@@ -268,6 +268,8 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .sav-cycle,.sav-payer-sel,.sav-account-sel,.sav-include-sel { padding:8px 10px; border:2px solid #a5d6a7; border-radius:8px; font-size:0.83rem; min-width:150px; outline:none; background:white; }
 .sub-periodic-extra { display:flex; gap:6px; align-items:center; font-size:0.8rem; color:#5e35b1; background:#f3f0ff; border:1px dashed #d9cfff; border-radius:8px; padding:6px 10px; }
 .sub-periodic-extra select { padding:4px 6px; border:1px solid #d9cfff; border-radius:6px; font-size:0.8rem; }
+.exp-periodic-extra { display:flex; gap:6px; align-items:center; font-size:0.8rem; color:#0056b3; background:#f0f8ff; border:1px dashed #b8daff; border-radius:8px; padding:6px 10px; }
+.exp-periodic-extra select { padding:4px 6px; border:1px solid #b8daff; border-radius:6px; font-size:0.8rem; }
 .due-date-wrap-inner { display:flex; align-items:center; gap:4px; font-size:0.78rem; color:#888; white-space:nowrap; background:#fff; border:1px dashed #ffab91; border-radius:8px; padding:5px 8px; }
 .due-date-wrap-inner select { padding:4px 6px; border:1.5px solid #e0e0f0; border-radius:6px; font-size:0.8rem; outline:none; }
 .badge-urgent { background:linear-gradient(135deg,#ff5252,#e53935); }
@@ -418,7 +420,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 
         <div class="result-section-card periodic-result-card hidden" id="res-periodic">
           <h2>🔁 Nヶ月ごとの一括払い（今月分）</h2>
-          <p style="font-size:0.82rem;color:#666;margin-bottom:14px;">今月が支払月にあたるサブスクだけを表示しています。支払月でない場合はここには何も表示されません。</p>
+         <p style="font-size:0.82rem;color:#666;margin-bottom:14px;">今月が支払月にあたる費用項目・サブスクだけを表示しています。支払月でない場合はここには何も表示されません。</p>
           <div style="overflow-x:auto;"><table class="result-table"><thead><tr><th>サービス名</th><th>金額</th><th>口座</th><th>夫の負担</th><th>妻の負担</th></tr></thead>
           <tbody id="periodicSubBody"></tbody>
           <tfoot><tr class="total-row"><td>今月の一括合計</td><td id="periodicSubTotal"></td><td>—</td><td id="periodicSubH" class="husband-amount"></td><td id="periodicSubW" class="wife-amount"></td></tr></tfoot>
@@ -897,7 +899,7 @@ async function toggleItemPaid(itemKey,person,checked,cbEl){
   showToast(checked?'✅ 振込済みにしました':'↩ 未振込に戻しました');
 }
 
-const TRANSFER_PERIODS = ['monthly','bonus_summer','bonus_winter','yearly_lump'];
+const TRANSFER_PERIODS = ['monthly','bonus_summer','bonus_winter','yearly_lump','periodic'];
 
 function periodLabel(p){
   return {monthly:'📅 月々', bonus_summer:'🌻 夏ボーナス', bonus_winter:'⛄ 冬ボーナス', yearly_lump:'📆 年一括払い（年払いサブスク含む）',periodic:'🔁 Nヶ月ごとの一括払い（今月分）'}[p] || p;
@@ -936,9 +938,12 @@ function getFormData(){
       mode:r.querySelector('.exp-mode').value,
       hPct:50,
       account:r.querySelector('.account-sel').value||'',
+      interval:r.querySelector('.exp-interval')?r.querySelector('.exp-interval').value:'3',
+      startMonth:r.querySelector('.exp-start-month')?r.querySelector('.exp-start-month').value:'1',
       dueDay:due.dueDay, dueMonth:due.dueMonth
     });
   });
+
   document.querySelectorAll('#subList .sub-row').forEach(r=>{
     const due=readDue(r);
     subs.push({
@@ -1012,7 +1017,10 @@ function applyData(data){
 }
 
 function addRow(data,idx,total){
-  data=data||{name:'',amount:'',cycle:'monthly',mode:'auto',hPct:50,account:''};
+  data=data||{name:'',amount:'',cycle:'monthly',mode:'auto',hPct:50,account:'',interval:'3',startMonth:'1'};
+  const interval = data.interval || '3';
+  const startMonth = data.startMonth || '1';
+  const expCycle = data.cycle || 'monthly';
   const isFirst=idx===0,isLast=idx===(total-1);
   const div=document.createElement('div');div.className='expense-row';
   div.innerHTML=`
@@ -1026,21 +1034,42 @@ function addRow(data,idx,total){
     </div>
     <div class="expense-row-body">
       <div class="exp-amount-wrap"><input type="number" class="exp-amount" min="0" value="${data.amount||''}" placeholder="金額"><span>円</span></div>
-      <select class="exp-cycle" onchange="refreshDueDateWrap(this.closest('.expense-row-body'), this.value==='monthly'||this.value==='yearly')">
-        <option value="monthly" ${data.cycle==='monthly'?'selected':''}>毎月払い</option>
-        <option value="yearly" ${data.cycle==='yearly'?'selected':''}>年1回（÷12月割り）</option>
-        <option value="bonus_summer" ${data.cycle==='bonus_summer'?'selected':''}>🌻 夏ボーナス払い</option>
-        <option value="bonus_winter" ${data.cycle==='bonus_winter'?'selected':''}>⛄ 冬ボーナス払い</option>
-        <option value="yearly_lump" ${data.cycle==='yearly_lump'?'selected':''}>年1回・一括（月割りなし）</option>
+      <select class="exp-cycle" onchange="updateExpAmountPlaceholder(this);refreshDueDateWrap(this.closest('.expense-row-body'), this.value==='monthly'||this.value==='yearly')">
+        <option value="monthly" ${expCycle==='monthly'?'selected':''}>毎月払い</option>
+        <option value="yearly" ${expCycle==='yearly'?'selected':''}>年1回（÷12月割り）</option>
+        <option value="bonus_summer" ${expCycle==='bonus_summer'?'selected':''}>🌻 夏ボーナス払い</option>
+        <option value="bonus_winter" ${expCycle==='bonus_winter'?'selected':''}>⛄ 冬ボーナス払い</option>
+        <option value="yearly_lump" ${expCycle==='yearly_lump'?'selected':''}>年1回・一括（月割りなし）</option>
+        <option value="periodic" ${expCycle==='periodic'?'selected':''}>🔁 Nヶ月ごとの定期払い（一括・月額には含めない）</option>
       </select>
+      <div class="exp-periodic-extra ${expCycle==='periodic'?'':'hidden'}">
+        <span>頻度</span>
+        <select class="exp-interval">
+          <option value="2" ${interval==='2'?'selected':''}>2ヶ月ごと</option>
+          <option value="3" ${interval==='3'?'selected':''}>3ヶ月ごと</option>
+          <option value="4" ${interval==='4'?'selected':''}>4ヶ月ごと</option>
+          <option value="6" ${interval==='6'?'selected':''}>6ヶ月ごと</option>
+        </select>
+        <span>起点月</span>
+        <select class="exp-start-month">
+          ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}" ${String(startMonth)===String(m)?'selected':''}>${m}月</option>`).join('')}
+        </select>
+      </div>
       <select class="exp-mode">${buildModeOptions(data.mode)}</select>
       <select class="account-sel">${buildOptions(masterData.accounts,data.account,'🏦 口座を選択')}</select>
-      <div class="due-date-wrap">${buildDueDateInput(!data.cycle||data.cycle==='monthly'||data.cycle==='yearly', data.dueDay||'', data.dueMonth||'')}</div>
+      <div class="due-date-wrap">${buildDueDateInput(!expCycle||expCycle==='monthly'||expCycle==='yearly', data.dueDay||'', data.dueMonth||'')}</div>
     </div>`;
   document.getElementById('expenseList').appendChild(div);
 }
 
-
+function updateExpAmountPlaceholder(selectEl){
+  const body=selectEl.closest('.expense-row-body');
+  const input=body.querySelector('.exp-amount');
+  const extra=body.querySelector('.exp-periodic-extra');
+  const v=selectEl.value;
+  input.placeholder = v==='periodic' ? '1回分の支払額（円）' : '金額';
+  if(extra) extra.classList.toggle('hidden', v!=='periodic');
+}
 
 function removeExpenseRow(btn){const data=getFormData();const row=btn.closest('.expense-row');const idx=Array.from(document.querySelectorAll('#expenseList .expense-row')).indexOf(row);data.rows.splice(idx,1);applyData(data);scheduleAutoSave();}
 function addNewExpenseRow(){const data=getFormData();data.rows.push({name:'',amount:'',cycle:'monthly',mode:'auto',hPct:50,account:''});applyData(data);scheduleAutoSave();}
@@ -1188,12 +1217,34 @@ function calcRatios(hIncome,wIncome,rows,hSummerIncome=0,wSummerIncome=0,hWinter
   const total=hIncome+wIncome,hRatio=total>0?hIncome/total:0;
   const summerTotal=hSummerIncome+wSummerIncome,hSummerRatio=summerTotal>0?hSummerIncome/summerTotal:hRatio;
   const winterTotal=hWinterIncome+wWinterIncome,hWinterRatio=winterTotal>0?hWinterIncome/winterTotal:hRatio;
-  let totalMonthly=0,totalH=0,totalW=0,sTotal=0,sH=0,sW=0,wnTotal=0,wnH=0,wnW=0,yTotal=0,yH=0,yW=0;
-  const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[];
+  let totalMonthly=0,totalH=0,totalW=0,sTotal=0,sH=0,sW=0,wnTotal=0,wnH=0,wnW=0,yTotal=0,yH=0,yW=0,pTotal=0,pH=0,pW=0;
+  const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[],periodicItems=[];
+  const now = new Date();          // ★1回だけ生成（forEachの中で毎回生成しない）
+  const currentMonth = now.getMonth() + 1;
   (rows||[]).forEach(r=>{
     const amount=parseFloat(r.amount)||0;if(amount<=0)return;
     const hPct=resolveHPct(r.mode,hRatio,hSummerRatio,hWinterRatio,r.hPct),wPct=100-hPct;
+
+    if(r.cycle==='periodic'){
+      const interval = parseInt(r.interval) || 3;
+      const startMonth = parseInt(r.startMonth) || 1;
+      const diff = (currentMonth - startMonth + 12) % 12;
+      const isThisMonthPay = (diff % interval) === 0;
+
+      if(isThisMonthPay){
+        const hP = amount * hPct / 100, wP = amount * wPct / 100;
+        pTotal += amount; pH += hP; pW += wP;
+        periodicItems.push({
+          name: r.name, amount, hVal: hP, wVal: wP, mode: r.mode, hPct,
+          interval: String(interval), startMonth: String(startMonth),
+          account: r.account||'', dueDay: r.dueDay, dueMonth: r.dueMonth
+        });
+      }
+      return; // 支払月でなければ何も加算せず次の項目へ
+    }
+
     if(r.cycle==='bonus_summer'||r.cycle==='bonus_winter'){
+
       const hB=amount*hPct/100,wB=amount*wPct/100;
       const item={name:r.name,amount,hVal:hB,wVal:wB,mode:r.mode,hPct,account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth};
     if(r.cycle==='bonus_summer'){sTotal+=amount;sH+=hB;sW+=wB;summerItems.push(item);}
@@ -1212,7 +1263,7 @@ function calcRatios(hIncome,wIncome,rows,hSummerIncome=0,wSummerIncome=0,hWinter
   monthlyItems.push({name:r.name,monthly,hM,wM,cycle:r.cycle,mode:r.mode,hPct,account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth});
 
   });
-  return{hRatio,hSummerRatio,hWinterRatio,totalMonthly,totalH,totalW,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
+  return{hRatio,hSummerRatio,hWinterRatio,totalMonthly,totalH,totalW,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,pTotal,pH,pW,monthlyItems,summerItems,winterItems,lumpItems,periodicItems};
 }
 
 function calcSubs(subsData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
@@ -1396,10 +1447,15 @@ function calcPersonPeriodAccounts(res, subs, ins, savs){
     add('h','bonus_winter',i.account,i.name,i.hVal,'⛄冬ボーナス',i.dueDay,i.dueMonth);
     add('w','bonus_winter',i.account,i.name,i.wVal,'⛄冬ボーナス',i.dueDay,i.dueMonth);
   });
-  res.lumpItems.forEach(i=>{
+   res.lumpItems.forEach(i=>{
     add('h','yearly_lump',i.account,i.name,i.hY,'📆年一括',i.dueDay,i.dueMonth);
     add('w','yearly_lump',i.account,i.name,i.wY,'📆年一括',i.dueDay,i.dueMonth);
   });
+  res.periodicItems.forEach(i=>{
+    add('h','periodic',i.account,i.name,i.hVal,`📋費用項目(${i.interval}ヶ月ごと)`,i.dueDay,i.dueMonth);
+    add('w','periodic',i.account,i.name,i.wVal,`📋費用項目(${i.interval}ヶ月ごと)`,i.dueDay,i.dueMonth);
+  });
+
   subs.mDetails.forEach(s=>{
     add('h','monthly',s.account,s.name,s.hVal,'📱サブスク(月)',s.dueDay,s.dueMonth);
     add('w','monthly',s.account,s.name,s.wVal,'📱サブスク(月)',s.dueDay,s.dueMonth);
@@ -1658,16 +1714,33 @@ if(lumpTotal>0){
 }else{yoSec.classList.add('hidden');}
 
 const pSec=document.getElementById('res-periodic'),pBody=document.getElementById('periodicSubBody');pBody.innerHTML='';
-if(subs.pDetails && subs.pDetails.length>0){
+const hasExpPeriodic = res.periodicItems && res.periodicItems.length>0;
+const hasSubPeriodic = subs.pDetails && subs.pDetails.length>0;
+
+if(hasExpPeriodic || hasSubPeriodic){
   pSec.classList.remove('hidden');
-  subs.pDetails.forEach(item=>{
+
+  res.periodicItems.forEach(item=>{
+    const fb = item.mode==='fixed'
+      ? `<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
+      : `<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${item.name}<span class="badge badge-periodic">${item.interval}ヶ月ごと</span><span class="badge ${item.badgeCls}">${item.label}</span></td><td>${fmt(item.amount)}</td><td style="font-size:0.82rem;color:#e65100;font-weight:700;">${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
+    tr.innerHTML=`<td>${item.name}<span class="badge badge-cat">費用</span><span class="badge badge-periodic">${item.interval}ヶ月ごと</span>${fb}</td><td>${fmt(item.amount)}</td><td style="font-size:0.82rem;color:#e65100;font-weight:700;">${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
     pBody.appendChild(tr);
   });
-  document.getElementById('periodicSubTotal').textContent=fmt(subs.pTotal);
-  document.getElementById('periodicSubH').textContent=fmt(subs.pH);
-  document.getElementById('periodicSubW').textContent=fmt(subs.pW);
+
+  subs.pDetails.forEach(item=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${item.name}<span class="badge badge-sub">サブスク</span><span class="badge badge-periodic">${item.interval}ヶ月ごと</span><span class="badge ${item.badgeCls}">${item.label}</span></td><td>${fmt(item.amount)}</td><td style="font-size:0.82rem;color:#e65100;font-weight:700;">${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
+    pBody.appendChild(tr);
+  });
+
+  const grandPTotal = (res.pTotal||0) + (subs.pTotal||0);
+  const grandPH = (res.pH||0) + (subs.pH||0);
+  const grandPW = (res.pW||0) + (subs.pW||0);
+  document.getElementById('periodicSubTotal').textContent=fmt(grandPTotal);
+  document.getElementById('periodicSubH').textContent=fmt(grandPH);
+  document.getElementById('periodicSubW').textContent=fmt(grandPW);
 }else{
   pSec.classList.add('hidden');
 }
