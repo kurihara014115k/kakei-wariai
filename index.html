@@ -1327,7 +1327,9 @@ function calcDueScore(dueDay, dueMonth){
   const day = parseInt(dueDay)||0;
   if(!day) return Infinity;
   const now = new Date();
+  now.setHours(0, 0, 0, 0); // ★追加：時刻を切り捨てて「日付」だけで比較するようにする
   const month = parseInt(dueMonth)||0;
+
   let target;
   if(!month){
     // 毎月払い・年÷12：家計の締め日（起算日）を基準に、日付がどちらの暦月に属するかを判定する
