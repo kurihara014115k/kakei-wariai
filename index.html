@@ -151,11 +151,34 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .acct-detail-toggle { background:#fff8e1; color:#e65100; border-color:#ffe082; }
 
 /* Transfer Summary Styles */
-.transfer-person-block { margin-bottom: 22px; }
+.transfer-person-block {
+  margin-bottom: 24px;
+  padding: 16px 12px 20px;
+  border-radius: 14px;
+}
 .transfer-person-block:last-child { margin-bottom: 0; }
-.transfer-person-title { font-size: 1rem; font-weight: 800; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; }
-.transfer-person-title.husband { background: linear-gradient(135deg,#667eea22,#764ba222); color: #5a6fd6; border-left: 4px solid #667eea; }
-.transfer-person-title.wife    { background: linear-gradient(135deg,#f093fb22,#f5576c22); color: #e0457a; border-left: 4px solid #f5576c; }
+/* ★追加：夫/妻のブロック全体に薄い背景色と左端の太いラインをつける */
+.transfer-person-block.husband {
+  background: linear-gradient(to bottom, #eef1ff, #fbfcff);
+  border: 1px solid #d0dcf5;
+  border-left: 6px solid #667eea;
+}
+.transfer-person-block.wife {
+  background: linear-gradient(to bottom, #fff0f5, #fffafc);
+  border: 1px solid #fadce6;
+  border-left: 6px solid #f5576c;
+}
+/* ★修正：見出しラベルをスクロール中も画面上部（タブバーの下）に固定表示する */
+.transfer-person-title {
+  font-size: 1.05rem; font-weight: 800; padding: 10px 14px; border-radius: 10px; margin-bottom: 16px;
+  position: sticky;
+  top: 50px; /* タブバーの高さ分だけ下にずらす目安値。ズレていたら調整します */
+  z-index: 90; /* タブバー（z-index:100）より低い値にして重なりを防ぐ */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* 「浮いている」感を出す */
+}
+.transfer-person-title.husband { background: linear-gradient(135deg,#667eea,#764ba2); color: white; }
+.transfer-person-title.wife    { background: linear-gradient(135deg,#f093fb,#f5576c); color: white; }
+
 .transfer-period-block { margin-bottom: 24px; padding-left: 0; border-left: none; }
 .transfer-period-title {
   display:flex; justify-content:space-between; align-items:center;
@@ -2352,9 +2375,10 @@ function renderPersonPeriodSummary(ppData){
     });
 
     const block = document.createElement('div');
-    block.className = 'transfer-person-block';
+    block.className = `transfer-person-block ${person.cls}`; // ★追加：夫/妻のクラス（husband/wife）をブロック全体にも付与する
     block.innerHTML = html;
     container.appendChild(block);
+
   });
 
   document.getElementById('res-acct').classList.toggle('hidden', !anyData);
