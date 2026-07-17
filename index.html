@@ -187,7 +187,13 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   letter-spacing:0.02em;
   text-shadow:0 1px 3px rgba(0,0,0,0.25);
   box-shadow:0 3px 10px rgba(0,0,0,0.12);
+  /* ★追加：二重sticky。夫/妻ラベル（top:50px）の直下に、期間ラベルも固定表示する。
+     同じtop値を持つsticky要素は、各期間ブロックのスクロールに応じて自然に入れ替わる */
+  position: sticky;
+  top: 96px; /* タブバー(約50px) ＋ 夫/妻ラベルの高さ(約46px) の合計を目安にした値 */
+  z-index: 85; /* 夫/妻ラベル(z-index:90)より低く、通常のコンテンツより高くする */
 }
+
 .transfer-period-title.pt-monthly      { background:linear-gradient(135deg,#667eea,#764ba2); }
 .transfer-period-title.pt-bonus_summer { background:linear-gradient(135deg,#ff9800,#e65100); }
 .transfer-period-title.pt-bonus_winter { background:linear-gradient(135deg,#42a5f5,#1565c0); }
