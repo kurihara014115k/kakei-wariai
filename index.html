@@ -274,6 +274,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .due-date-wrap-inner select { padding:4px 6px; border:1.5px solid #e0e0f0; border-radius:6px; font-size:0.8rem; outline:none; }
 .badge-urgent { background:linear-gradient(135deg,#ff5252,#e53935); }
 .badge-soon   { background:linear-gradient(135deg,#ffb300,#f57f17); }
+.badge-carryover { background:linear-gradient(135deg,#e53935,#b71c1c); }
+.transfer-acct-item.carryover { background:linear-gradient(135deg,#fff5f5,#ffebee); border-color:#ef9a9a; }
+.transfer-acct-item.carryover .transfer-acct-name { color:#c62828; }
+.periodic-row-carryover td { background:#fff5f5 !important; }
 
 @media print {
   body { background:white !important; }
@@ -909,7 +913,15 @@ function transferPaidKey(acct,period,person){
   return `transfer__${acct}__${period}__${person}`;
 }
 
-async function toggleTransferPaid(acct,period,person,checked,cbEl){
+async function togglePeriodicItemPaid(itemKey, payYear, payMonth, person, checked){
+  await setPeriodicCyclePaid(itemKey, payYear, payMonth, person, checked);
+  const personLabel = person==='h' ? '夫' : '妻';
+  showToast(checked
+    ? `✅ ${personLabel}分を振込済みにしました（${payYear}年${payMonth}月分）`
+    : `↩ ${personLabel}分を未振込に戻しました`);
+  if(lastCalcResult) calculate(false);
+}
+async function toggleTransferPaid(acct, period, person, checked, cbEl){
   await setPaid(transferPaidKey(acct,period,person), checked);
   const item = cbEl.closest('.transfer-acct-item');
   if(item) item.classList.toggle('paid', checked);
@@ -1221,42 +1233,64 @@ function calcRatios(hIncome,wIncome,rows,hSummerIncome=0,wSummerIncome=0,hWinter
   const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[],periodicItems=[];
   const now = new Date();          // ★1回だけ生成（forEachの中で毎回生成しない）
   const currentMonth = now.getMonth() + 1;
-  (rows||[]).forEach(r=>{
+  (rows||[]).forEach((r,rawIdx)=>{
     const amount=parseFloat(r.amount)||0;if(amount<=0)return;
     const hPct=resolveHPct(r.mode,hRatio,hSummerRatio,hWinterRatio,r.hPct),wPct=100-hPct;
+
 
     if(r.cycle==='periodic'){
       const interval = parseInt(r.interval) || 3;
       const startMonth = parseInt(r.startMonth) || 1;
-      const diff = (currentMonth - startMonth + 12) % 12;
-      const isThisMonthPay = (diff % interval) === 0;
+      const itemKey = `exp_periodic_${rawIdx}`;
+      const info = getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct);
 
-      if(isThisMonthPay){
+      if(info.show){
         const hP = amount * hPct / 100, wP = amount * wPct / 100;
-        pTotal += amount; pH += hP; pW += wP;
+        if(!info.isCarryover){ pTotal += amount; pH += hP; pW += wP; }
         periodicItems.push({
           name: r.name, amount, hVal: hP, wVal: wP, mode: r.mode, hPct,
           interval: String(interval), startMonth: String(startMonth),
-          account: r.account||'', dueDay: r.dueDay, dueMonth: r.dueMonth
+          account: r.account||'', dueDay: r.dueDay, dueMonth: r.dueMonth,
+          itemKey, isCarryover: info.isCarryover, payYear: info.payYear, payMonth: info.payMonth
         });
       }
-      return; // 支払月でなければ何も加算せず次の項目へ
+      return;
     }
 
-    if(r.cycle==='bonus_summer'||r.cycle==='bonus_winter'){
 
-      const hB=amount*hPct/100,wB=amount*wPct/100;
-      const item={name:r.name,amount,hVal:hB,wVal:wB,mode:r.mode,hPct,account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth};
-    if(r.cycle==='bonus_summer'){sTotal+=amount;sH+=hB;sW+=wB;summerItems.push(item);}
-    else{wnTotal+=amount;wnH+=hB;wnW+=wB;winterItems.push(item);}
-    return;
-  }
-  if(r.cycle==='yearly_lump'){
-    const hY=amount*hPct/100,wY=amount*wPct/100;
-    yTotal+=amount;yH+=hY;yW+=wY;
-    lumpItems.push({name:r.name,amount,hY,wY,mode:r.mode,hPct,account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth});
-    return;
-  }
+      if(r.cycle==='bonus_summer'||r.cycle==='bonus_winter'){
+      const itemKey = `exp_${r.cycle}_${rawIdx}`;
+      const info = getYearlyDisplayInfo(r.cycle, r.dueMonth, itemKey, hPct);
+      if(info.show){
+        const hB=amount*hPct/100,wB=amount*wPct/100;
+        const item={
+          name:r.name,amount,hVal:hB,wVal:wB,mode:r.mode,hPct,
+          account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth,
+          itemKey, isCarryover:info.isCarryover, payYear:info.payYear, payMonth:info.payMonth
+        };
+        if(!info.isCarryover){
+          if(r.cycle==='bonus_summer'){sTotal+=amount;sH+=hB;sW+=wB;}
+          else{wnTotal+=amount;wnH+=hB;wnW+=wB;}
+        }
+        if(r.cycle==='bonus_summer'){summerItems.push(item);}else{winterItems.push(item);}
+      }
+      return;
+    }
+    if(r.cycle==='yearly_lump'){
+      const itemKey = `exp_yearly_lump_${rawIdx}`;
+      const info = getYearlyDisplayInfo('yearly_lump', r.dueMonth, itemKey, hPct);
+      if(info.show){
+        const hY=amount*hPct/100,wY=amount*wPct/100;
+        if(!info.isCarryover){ yTotal+=amount; yH+=hY; yW+=wY; }
+        lumpItems.push({
+          name:r.name,amount,hY,wY,mode:r.mode,hPct,
+          account:r.account||'',dueDay:r.dueDay,dueMonth:r.dueMonth,
+          itemKey, isCarryover:info.isCarryover, payYear:info.payYear, payMonth:info.payMonth
+        });
+      }
+      return;
+    }
+
   const monthly=r.cycle==='yearly'?amount/12:amount;
   const hM=monthly*hPct/100,wM=monthly*wPct/100;
   totalMonthly+=monthly;totalH+=hM;totalW+=wM;
@@ -1271,37 +1305,42 @@ function calcSubs(subsData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
   const mDetails=[], yDetails=[], pDetails=[];
   const now=new Date();
   const currentMonth=now.getMonth()+1;
-  (subsData||[]).forEach(s=>{
+  (subsData||[]).forEach((s, rawIdx)=>{
     const rawAmount=parseFloat(s.amount)||0;if(rawAmount<=0)return;
     const cycle=s.cycle||'monthly';
     const hPct=resolveHPct(s.payer,hRatio,hSummerRatio,hWinterRatio,50);
     const hVal=rawAmount*hPct/100, wVal=rawAmount*(100-hPct)/100;
-    if(cycle==='yearly'){
-      yTotal+=rawAmount; yH+=hVal; yW+=wVal;
-      yDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||'',dueDay:s.dueDay,dueMonth:s.dueMonth});
+     if(cycle==='yearly'){
+      const itemKey = `sub_yearly_${rawIdx}`;
+      const info = getYearlyDisplayInfo('yearly_lump', s.dueMonth, itemKey, hPct);
+      if(info.show){
+        if(!info.isCarryover){ yTotal+=rawAmount; yH+=hVal; yW+=wVal; }
+        yDetails.push({
+          name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,
+          label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),
+          account:s.account||'',dueDay:s.dueDay,dueMonth:s.dueMonth,
+          itemKey, isCarryover:info.isCarryover, payYear:info.payYear, payMonth:info.payMonth
+        });
+      }
     }else if(cycle==='periodic'){
-  const interval    = parseInt(s.interval)    || 3; // 2/3/4/6ヶ月ごと
-  const startMonth  = parseInt(s.startMonth)  || 1; // 起点月（1〜12）
-  const diff         = (currentMonth - startMonth + 12) % 12;
-  const isThisMonthPay = (diff % interval) === 0;   // 今月が支払月かどうか
 
-  if(isThisMonthPay){
-    pTotal += rawAmount; pH += hVal; pW += wVal;
-    pDetails.push({
-      name: s.name || '（無題）',
-      amount: rawAmount,
-      cycle,
-      interval: String(interval),
-      startMonth: String(startMonth),
-      hVal, wVal,
-      label: payerLabel(s.payer),
-      badgeCls: payerBadge(s.payer),
-      account: s.account || '',
-      dueDay: s.dueDay,
-      dueMonth: s.dueMonth
-    });
-  }
-}else{
+      const interval   = parseInt(s.interval)   || 3;
+      const startMonth = parseInt(s.startMonth) || 1;
+      const itemKey = `sub_periodic_${rawIdx}`;
+      const info = getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct);
+
+      if(info.show){
+        if(!info.isCarryover){ pTotal += rawAmount; pH += hVal; pW += wVal; }
+        pDetails.push({
+          name: s.name || '（無題）', amount: rawAmount, cycle,
+          interval: String(interval), startMonth: String(startMonth),
+          hVal, wVal, label: payerLabel(s.payer), badgeCls: payerBadge(s.payer),
+          account: s.account || '', dueDay: s.dueDay, dueMonth: s.dueMonth,
+          itemKey, isCarryover: info.isCarryover, payYear: info.payYear, payMonth: info.payMonth
+        });
+      }
+    }else{
+
 
       mTotal+=rawAmount; mH+=hVal; mW+=wVal;
       mDetails.push({name:s.name||'（無題）',amount:rawAmount,cycle,hVal,wVal,label:payerLabel(s.payer),badgeCls:payerBadge(s.payer),account:s.account||'',dueDay:s.dueDay,dueMonth:s.dueMonth});
@@ -1324,25 +1363,51 @@ function calcIns(insData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
   return{insTotal,insH,insW,details};
 }
 function calcSavs(hRatio,savsData,hSummerRatio=hRatio,hWinterRatio=hRatio){
-  let mTotal=0,mH=0,mW=0;          // 最終負担に反映される分（includeInFinal=true の毎月項目のみ）
-  let mTotalAll=0,mHAll=0,mWAll=0; // 毎月項目の全体合計（含める/含めない問わず）
+  let mTotal=0,mH=0,mW=0;
+  let mTotalAll=0,mHAll=0,mWAll=0;
   let sTotal=0,sH=0,sW=0, wnTotal=0,wnH=0,wnW=0, yTotal=0,yH=0,yW=0;
   const monthlyItems=[],summerItems=[],winterItems=[],lumpItems=[];
-  (savsData||[]).forEach(s=>{
+  (savsData||[]).forEach((s, rawIdx)=>{
     const amount=parseFloat(s.amount)||0;if(amount<=0)return;
     const hPct=resolveHPct(s.payer,hRatio,hSummerRatio,hWinterRatio,50);
     const hVal=amount*hPct/100, wVal=amount*(100-hPct)/100;
     const include=(s.includeInFinal==='true');
-    const item={name:s.name||'（無題）',amount,hVal,wVal,include,payer:s.payer,account:s.account||'',isSaving:true,dueDay:s.dueDay,dueMonth:s.dueMonth};
-    if(s.cycle==='bonus_summer'){sTotal+=amount;sH+=hVal;sW+=wVal;summerItems.push(item);return;}
-    if(s.cycle==='bonus_winter'){wnTotal+=amount;wnH+=hVal;wnW+=wVal;winterItems.push(item);return;}
-    if(s.cycle==='yearly_lump'){yTotal+=amount;yH+=hVal;yW+=wVal;lumpItems.push(item);return;}
+    const baseItem={name:s.name||'（無題）',amount,hVal,wVal,include,payer:s.payer,account:s.account||'',isSaving:true,dueDay:s.dueDay,dueMonth:s.dueMonth};
+
+    if(s.cycle==='bonus_summer'){
+      const itemKey=`sav_bonus_summer_${rawIdx}`;
+      const info=getYearlyDisplayInfo('bonus_summer', s.dueMonth, itemKey, hPct);
+      if(info.show){
+        if(!info.isCarryover){sTotal+=amount;sH+=hVal;sW+=wVal;}
+        summerItems.push({...baseItem, itemKey, isCarryover:info.isCarryover, payYear:info.payYear, payMonth:info.payMonth});
+      }
+      return;
+    }
+    if(s.cycle==='bonus_winter'){
+      const itemKey=`sav_bonus_winter_${rawIdx}`;
+      const info=getYearlyDisplayInfo('bonus_winter', s.dueMonth, itemKey, hPct);
+      if(info.show){
+        if(!info.isCarryover){wnTotal+=amount;wnH+=hVal;wnW+=wVal;}
+        winterItems.push({...baseItem, itemKey, isCarryover:info.isCarryover, payYear:info.payYear, payMonth:info.payMonth});
+      }
+      return;
+    }
+    if(s.cycle==='yearly_lump'){
+      const itemKey=`sav_yearly_lump_${rawIdx}`;
+      const info=getYearlyDisplayInfo('yearly_lump', s.dueMonth, itemKey, hPct);
+      if(info.show){
+        if(!info.isCarryover){yTotal+=amount;yH+=hVal;yW+=wVal;}
+        lumpItems.push({...baseItem, itemKey, isCarryover:info.isCarryover, payYear:info.payYear, payMonth:info.payMonth});
+      }
+      return;
+    }
     mTotalAll+=amount;mHAll+=hVal;mWAll+=wVal;
     if(include){mTotal+=amount;mH+=hVal;mW+=wVal;}
-    monthlyItems.push(item);
+    monthlyItems.push(baseItem);
   });
   return{mTotal,mH,mW,mTotalAll,mHAll,mWAll,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
 }
+
 // ── 振込期限ヘルパー関数（ここから） ──────────────────────────
 
 // 期限入力欄のHTMLを作る。isDayOnly が true なら「日」だけ、false なら「月＋日」のプルダウンにする
@@ -1420,19 +1485,170 @@ function dueDateLabel(dueDay, dueMonth){
 
 // ── 振込期限ヘルパー関数（ここまで） ──────────────────────────
 
+// ── Nヶ月ごと払いの繰り越し判定・専用チェック管理・年度順ソート（ここから） ──────
+
+// 指定した頻度・起点月から、直近の支払サイクル（年・月）を求める
+function getPeriodicCycleInfo(interval, startMonth, refDate){
+  refDate = refDate || new Date();
+  const currentMonth = refDate.getMonth() + 1;
+  const currentYear  = refDate.getFullYear();
+  for(let back = 0; back < interval; back++){
+    let m = currentMonth - back;
+    let y = currentYear;
+    if(m <= 0){ m += 12; y -= 1; }
+    const diff = (m - startMonth + 12) % 12;
+    if(diff % interval === 0){
+      return { payYear:y, payMonth:m, isThisMonthPay:(back===0) };
+    }
+  }
+  return null; // 数学的にはここには来ない
+}
+
+// paidStatusの通常のバケット（月が変わると自動リセット）とは別に、
+// 「そのサイクル（年月）の支払いが済んだか」を月をまたいでも保持するための専用領域
+function periodicCyclePaidKey(itemKey, payYear, payMonth, person){
+  return `${itemKey}__${payYear}-${String(payMonth).padStart(2,'0')}__${person}`;
+}
+function isPeriodicCyclePaid(itemKey, payYear, payMonth, person){
+  const k = periodicCyclePaidKey(itemKey, payYear, payMonth, person);
+  return !!(paidData.periodicLog && paidData.periodicLog[k]);
+}
+// hPctが0または100の項目でも正しく判定できるよう、対象外の人はtrue扱いにする
+function isPeriodicCycleSettled(itemKey, payYear, payMonth, checkH, checkW){
+  const hOk = checkH ? isPeriodicCyclePaid(itemKey,payYear,payMonth,'h') : true;
+  const wOk = checkW ? isPeriodicCyclePaid(itemKey,payYear,payMonth,'w') : true;
+  return hOk && wOk;
+}
+async function setPeriodicCyclePaid(itemKey, payYear, payMonth, person, checked){
+  if(!paidData.periodicLog) paidData.periodicLog = {};
+  paidData.periodicLog[periodicCyclePaidKey(itemKey,payYear,payMonth,person)] = checked;
+  try{ await fbPut(PAID_PATH, paidData); }catch(e){ showToast('⚠️ 振込状況の同期に失敗しました'); }
+}
+
+// 「今月表示するべきか」「繰り越し中か」を判定する（B-1：未払いなら次の支払月の前月まで繰り越す）
+function getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct){
+  const cycle = getPeriodicCycleInfo(interval, startMonth);
+  if(!cycle) return { show:false };
+  if(cycle.isThisMonthPay){
+    return { show:true, isCarryover:false, payYear:cycle.payYear, payMonth:cycle.payMonth };
+  }
+  // 今月は支払月ではない → 直近の支払サイクルが未払い（負担がある側がまだチェックしていない）なら繰り越し表示
+  const checkH = (hPct > 0), checkW = (hPct < 100);
+  if(isPeriodicCycleSettled(itemKey, cycle.payYear, cycle.payMonth, checkH, checkW)) return { show:false };
+  return { show:true, isCarryover:true, payYear:cycle.payYear, payMonth:cycle.payMonth };
+}
+
+// ── ボーナス・年一括払い（yearly_lump）専用の繰り越し判定・チェック管理（ここから） ──────
+// paidData.periodicLogとは完全に独立した paidData.yearlyLog を使う。
+// キーは「itemKey × 支払年 × 夫/妻」の複合キーで、月替わりの影響を受けない。
+function yearlyPaidKey(itemKey, payYear, person){
+  return `${itemKey}__${payYear}__${person}`;
+}
+function isYearlyPaid(itemKey, payYear, person){
+  const k = yearlyPaidKey(itemKey, payYear, person);
+  return !!(paidData.yearlyLog && paidData.yearlyLog[k]);
+}
+// hPctが0または100の項目でも正しく判定できるよう、対象外の人はtrue扱いにする
+function isYearlySettled(itemKey, payYear, checkH, checkW){
+  const hOk = checkH ? isYearlyPaid(itemKey, payYear, 'h') : true;
+  const wOk = checkW ? isYearlyPaid(itemKey, payYear, 'w') : true;
+  return hOk && wOk;
+}
+async function setYearlyPaid(itemKey, payYear, person, checked){
+  if(!paidData.yearlyLog) paidData.yearlyLog = {};
+  paidData.yearlyLog[yearlyPaidKey(itemKey, payYear, person)] = checked;
+  try{ await fbPut(PAID_PATH, paidData); }catch(e){ showToast('⚠️ 振込状況の同期に失敗しました'); }
+}
+async function toggleYearlyItemPaid(itemKey, payYear, person, checked){
+  await setYearlyPaid(itemKey, payYear, person, checked);
+  const personLabel = person==='h' ? '夫' : '妻';
+  showToast(checked
+    ? `✅ ${personLabel}分を振込済みにしました（${payYear}年分）`
+    : `↩ ${personLabel}分を未振込に戻しました`);
+  if(lastCalcResult) calculate(false);
+}
+
+// 「今年表示するべきか」「繰り越し中か」を判定する
+// cycle: 'bonus_summer' | 'bonus_winter' | 'yearly_lump'
+// dueMonth: 項目に設定された期限月（未設定なら夏=7月・冬=12月・年一括=1月を目安にする）
+function getYearlyDisplayInfo(cycle, dueMonth, itemKey, hPct){
+  const now = new Date();
+  const currentYear  = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const checkH = (hPct > 0), checkW = (hPct < 100);
+
+  let targetMonth = parseInt(dueMonth) || 0;
+  if(!targetMonth){
+    targetMonth = (cycle==='bonus_summer') ? 7 : (cycle==='bonus_winter') ? 12 : 1;
+  }
+
+  // ① 前年分について「一度でも記録が残っている」かつ「未払い」の場合のみ、前年分の繰り越しとして表示する（払い忘れ検知）
+  // yearlyLogに前年分のキー（夫または妻のいずれか）が一つも存在しない場合は「そもそも記録がない」とみなし、
+  // 誤って毎回「前年分未払い」と判定してしまうことを防ぐ
+  const prevYearKeyH = yearlyPaidKey(itemKey, currentYear - 1, 'h');
+  const prevYearKeyW = yearlyPaidKey(itemKey, currentYear - 1, 'w');
+  const hasPrevYearRecord = !!(
+    paidData.yearlyLog && (
+      paidData.yearlyLog[prevYearKeyH] !== undefined ||
+      paidData.yearlyLog[prevYearKeyW] !== undefined
+    )
+  );
+  if(hasPrevYearRecord && !isYearlySettled(itemKey, currentYear - 1, checkH, checkW)){
+    return { show:true, isCarryover:true, payYear:currentYear - 1, payMonth:targetMonth };
+  }
+
+  // ② 今年分がすでに支払済みなら非表示にする
+  if(isYearlySettled(itemKey, currentYear, checkH, checkW)){
+    return { show:false };
+  }
+  // ③ 今年分は未払い。支払月をもう過ぎていれば「繰り越し（遅延）」として扱う
+  const isCarryover = (currentMonth > targetMonth);
+  return { show:true, isCarryover, payYear:currentYear, payMonth:targetMonth };
+}
+
+
+// ── ここまで ──────────────────────────────────────
+
+
+// 年度（4月始まり）で早い日を前にするためのスコア（4月=0、3月=11）
+function fiscalMonthScore(month){
+  const m = parseInt(month)||0;
+  if(!m) return 999; // 月未設定は最後
+  return (m - 4 + 12) % 12;
+}
+function sortByFiscalDate(items){
+  return [...items].sort((a,b)=>{
+    // 期限月（dueMonth）が未設定の場合は、自動計算された支払月（payMonth）をフォールバックとして使う。
+    // ボーナス・年一括払いなど、期限を個別に設定していない項目でも年度順に並ぶようにするため
+    const monthA = parseInt(a.dueMonth) || parseInt(a.payMonth) || 0;
+    const monthB = parseInt(b.dueMonth) || parseInt(b.payMonth) || 0;
+    const mA = fiscalMonthScore(monthA);
+    const mB = fiscalMonthScore(monthB);
+    if(mA !== mB) return mA - mB;
+    const dA = parseInt(a.dueDay) || 999;
+    const dB = parseInt(b.dueDay) || 999;
+    return dA - dB;
+  });
+}
+
+
+
+// ── ここまで ──────────────────────────────────────
+
 
 function calcPersonPeriodAccounts(res, subs, ins, savs){
   const result = {
     h: { monthly:{}, bonus_summer:{}, bonus_winter:{}, yearly_lump:{}, periodic:{} },
     w: { monthly:{}, bonus_summer:{}, bonus_winter:{}, yearly_lump:{}, periodic:{} }
   };
-    function add(person, period, acct, name, val, category, dueDay, dueMonth){
+    function add(person, period, acct, name, val, category, dueDay, dueMonth, itemKey, isCarryover, payYear, payMonth){
     if(!acct || val<=0) return;
     const map = result[person][period];
     if(!map[acct]) map[acct] = { total:0, items:[] };
-    map[acct].total += val;
-    map[acct].items.push({ name, val, category, dueDay:dueDay||'', dueMonth:dueMonth||'' });
+    map[acct].total += val; // 繰り越し中でも実際に振り込む必要がある金額なので合計に含める
+    map[acct].items.push({ name, val, category, dueDay:dueDay||'', dueMonth:dueMonth||'', itemKey:itemKey||'', isCarryover:!!isCarryover, payYear:payYear||0, payMonth:payMonth||0 });
   }
+
 
     res.monthlyItems.forEach(i=>{
     const cat = i.cycle==='yearly' ? '📅年額÷12' : '📅毎月';
@@ -1440,34 +1656,38 @@ function calcPersonPeriodAccounts(res, subs, ins, savs){
     add('w','monthly',i.account,i.name,i.wM,cat,i.dueDay,i.dueMonth);
   });
   res.summerItems.forEach(i=>{
-    add('h','bonus_summer',i.account,i.name,i.hVal,'🌻夏ボーナス',i.dueDay,i.dueMonth);
-    add('w','bonus_summer',i.account,i.name,i.wVal,'🌻夏ボーナス',i.dueDay,i.dueMonth);
+    add('h','bonus_summer',i.account,i.name,i.hVal,'🌻夏ボーナス',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
+    add('w','bonus_summer',i.account,i.name,i.wVal,'🌻夏ボーナス',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
   });
   res.winterItems.forEach(i=>{
-    add('h','bonus_winter',i.account,i.name,i.hVal,'⛄冬ボーナス',i.dueDay,i.dueMonth);
-    add('w','bonus_winter',i.account,i.name,i.wVal,'⛄冬ボーナス',i.dueDay,i.dueMonth);
+    add('h','bonus_winter',i.account,i.name,i.hVal,'⛄冬ボーナス',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
+    add('w','bonus_winter',i.account,i.name,i.wVal,'⛄冬ボーナス',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
   });
-   res.lumpItems.forEach(i=>{
-    add('h','yearly_lump',i.account,i.name,i.hY,'📆年一括',i.dueDay,i.dueMonth);
-    add('w','yearly_lump',i.account,i.name,i.wY,'📆年一括',i.dueDay,i.dueMonth);
+  res.lumpItems.forEach(i=>{
+    add('h','yearly_lump',i.account,i.name,i.hY,'📆年一括',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
+    add('w','yearly_lump',i.account,i.name,i.wY,'📆年一括',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
   });
+
   res.periodicItems.forEach(i=>{
-    add('h','periodic',i.account,i.name,i.hVal,`📋費用項目(${i.interval}ヶ月ごと)`,i.dueDay,i.dueMonth);
-    add('w','periodic',i.account,i.name,i.wVal,`📋費用項目(${i.interval}ヶ月ごと)`,i.dueDay,i.dueMonth);
+    add('h','periodic',i.account,i.name,i.hVal,`📋費用項目(${i.interval}ヶ月ごと)`,i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
+    add('w','periodic',i.account,i.name,i.wVal,`📋費用項目(${i.interval}ヶ月ごと)`,i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
   });
+
 
   subs.mDetails.forEach(s=>{
     add('h','monthly',s.account,s.name,s.hVal,'📱サブスク(月)',s.dueDay,s.dueMonth);
     add('w','monthly',s.account,s.name,s.wVal,'📱サブスク(月)',s.dueDay,s.dueMonth);
   });
   subs.yDetails.forEach(s=>{
-    add('h','yearly_lump',s.account,s.name,s.hVal,'📱サブスク(年)',s.dueDay,s.dueMonth);
-    add('w','yearly_lump',s.account,s.name,s.wVal,'📱サブスク(年)',s.dueDay,s.dueMonth);
+    add('h','yearly_lump',s.account,s.name,s.hVal,'📱サブスク(年)',s.dueDay,s.dueMonth,s.itemKey,s.isCarryover,s.payYear,s.payMonth);
+    add('w','yearly_lump',s.account,s.name,s.wVal,'📱サブスク(年)',s.dueDay,s.dueMonth,s.itemKey,s.isCarryover,s.payYear,s.payMonth);
   });
+
   subs.pDetails.forEach(s=>{
-    add('h','periodic',s.account,s.name,s.hVal,`📱サブスク(${s.interval}ヶ月ごと)`,s.dueDay,s.dueMonth);
-    add('w','periodic',s.account,s.name,s.wVal,`📱サブスク(${s.interval}ヶ月ごと)`,s.dueDay,s.dueMonth);
+    add('h','periodic',s.account,s.name,s.hVal,`📱サブスク(${s.interval}ヶ月ごと)`,s.dueDay,s.dueMonth,s.itemKey,s.isCarryover,s.payYear,s.payMonth);
+    add('w','periodic',s.account,s.name,s.wVal,`📱サブスク(${s.interval}ヶ月ごと)`,s.dueDay,s.dueMonth,s.itemKey,s.isCarryover,s.payYear,s.payMonth);
   });
+
   ins.details.forEach(i=>{
     add('h','monthly',i.account,i.name,i.hVal,'🛡️保険',i.dueDay,i.dueMonth);
     add('w','monthly',i.account,i.name,i.wVal,'🛡️保険',i.dueDay,i.dueMonth);
@@ -1476,18 +1696,19 @@ function calcPersonPeriodAccounts(res, subs, ins, savs){
     add('h','monthly',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
     add('w','monthly',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
   });
-  savs.summerItems.forEach(i=>{
-    add('h','bonus_summer',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
-    add('w','bonus_summer',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
+   savs.summerItems.forEach(i=>{
+    add('h','bonus_summer',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
+    add('w','bonus_summer',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
   });
   savs.winterItems.forEach(i=>{
-    add('h','bonus_winter',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
-    add('w','bonus_winter',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
+    add('h','bonus_winter',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
+    add('w','bonus_winter',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
   });
   savs.lumpItems.forEach(i=>{
-    add('h','yearly_lump',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
-    add('w','yearly_lump',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth);
+    add('h','yearly_lump',i.account,i.name,i.hVal,'💰貯蓄・投資',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
+    add('w','yearly_lump',i.account,i.name,i.wVal,'💰貯蓄・投資',i.dueDay,i.dueMonth,i.itemKey,i.isCarryover,i.payYear,i.payMonth);
   });
+
 
   return result;
 }
@@ -1688,30 +1909,58 @@ const winterItemsAll = [...res.winterItems, ...savs.winterItems];
 renderBonusSection('bonusWinterSection','bonusWinterBody','bonusWinterTotal','bonusWinterH','bonusWinterW',winterTotalAll,winterHAll,winterWAll,winterItemsAll);
 
 const yoSec=document.getElementById('yearlyLumpSection'),yoBody=document.getElementById('yearlyLumpBody');yoBody.innerHTML='';
-const lumpTotal = res.yTotal + subs.yTotal + savs.yTotal;
-if(lumpTotal>0){
+
+const allLumpItems = sortByFiscalDate([
+  ...res.lumpItems.map(i=>({...i,_type:'exp'})),
+  ...subs.yDetails.map(i=>({...i,_type:'sub'})),
+  ...savs.lumpItems.map(i=>({...i,_type:'sav'}))
+]);
+
+if(allLumpItems.length>0){
   yoSec.classList.remove('hidden');
-   res.lumpItems.forEach(item=>{
-    const fb=item.mode==='fixed'
-      ?`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
-      :`<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
-    const tr=document.createElement('tr');tr.innerHTML=`<td>${item.name}<span class="badge badge-lump">一括</span>${fb}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hY)}</td><td class="wife-amount">${fmt(item.wY)}</td>`;yoBody.appendChild(tr);
+
+  let grandLumpTotal=0, grandLumpH=0, grandLumpW=0;
+
+  allLumpItems.forEach(item=>{
+    const hVal = item._type==='exp' ? item.hY : item.hVal;
+    const wVal = item._type==='exp' ? item.wY : item.wVal;
+    grandLumpTotal += item.amount;
+    grandLumpH += hVal;
+    grandLumpW += wVal;
+
+    const carryoverBadge = item.isCarryover
+      ? `<span class="badge badge-carryover">⚠️未払い繰り越し（${item.payYear}年分）</span>` : '';
+    const hPaid = item.itemKey ? isYearlyPaid(item.itemKey, item.payYear, 'h') : false;
+    const wPaid = item.itemKey ? isYearlyPaid(item.itemKey, item.payYear, 'w') : false;
+
+    // ★0円のときはチェックボックスを出さない
+    const hCheckHtml = (item.itemKey && hVal > 0)
+      ? `<div><label class="item-paid-label ${hPaid?'paid-h':''}"><input type="checkbox" ${hPaid?'checked':''} onchange="toggleYearlyItemPaid('${item.itemKey}',${item.payYear},'h',this.checked)"> 夫済</label></div>` : '';
+    const wCheckHtml = (item.itemKey && wVal > 0)
+      ? `<div><label class="item-paid-label ${wPaid?'paid-w':''}"><input type="checkbox" ${wPaid?'checked':''} onchange="toggleYearlyItemPaid('${item.itemKey}',${item.payYear},'w',this.checked)"> 妻済</label></div>` : '';
+
+    const tr=document.createElement('tr');
+    if(item.isCarryover) tr.className='periodic-row-carryover';
+
+    if(item._type==='exp'){
+      const fb=item.mode==='fixed'
+        ?`<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
+        :`<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
+      tr.innerHTML=`<td>${item.name}<span class="badge badge-lump">一括</span>${fb}${carryoverBadge}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hY)}${hCheckHtml}</td><td class="wife-amount">${fmt(item.wY)}${wCheckHtml}</td>`;
+    }else if(item._type==='sub'){
+      tr.innerHTML=`<td>${item.name}<span class="badge badge-sub">サブスク</span><span class="badge badge-lump">年払い</span><span class="badge ${item.badgeCls}">${item.label}</span>${carryoverBadge}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}${hCheckHtml}</td><td class="wife-amount">${fmt(item.wVal)}${wCheckHtml}</td>`;
+    }else{
+      tr.innerHTML=`<td>${item.name}<span class="badge badge-sav">💰貯蓄・投資</span><span class="badge ${payerBadge(item.payer)}">${payerLabel(item.payer)}</span>${carryoverBadge}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}${hCheckHtml}</td><td class="wife-amount">${fmt(item.wVal)}${wCheckHtml}</td>`;
+    }
+    yoBody.appendChild(tr);
   });
 
-  subs.yDetails.forEach(item=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${item.name}<span class="badge badge-sub">サブスク</span><span class="badge badge-lump">年払い</span><span class="badge ${item.badgeCls}">${item.label}</span></td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
-    yoBody.appendChild(tr);
-  });
-  savs.lumpItems.forEach(item=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${item.name}<span class="badge badge-sav">💰貯蓄・投資</span><span class="badge ${payerBadge(item.payer)}">${payerLabel(item.payer)}</span></td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
-    yoBody.appendChild(tr);
-  });
-  document.getElementById('yearlyLumpTotal').textContent=fmt(lumpTotal);
-  document.getElementById('yearlyLumpH').textContent=fmt(res.yH + subs.yH + savs.yH);
-  document.getElementById('yearlyLumpW').textContent=fmt(res.yW + subs.yW + savs.yW);
+  document.getElementById('yearlyLumpTotal').textContent=fmt(grandLumpTotal);
+  document.getElementById('yearlyLumpH').textContent=fmt(grandLumpH);
+  document.getElementById('yearlyLumpW').textContent=fmt(grandLumpW);
 }else{yoSec.classList.add('hidden');}
+
+
 
 const pSec=document.getElementById('res-periodic'),pBody=document.getElementById('periodicSubBody');pBody.innerHTML='';
 const hasExpPeriodic = res.periodicItems && res.periodicItems.length>0;
@@ -1720,30 +1969,48 @@ const hasSubPeriodic = subs.pDetails && subs.pDetails.length>0;
 if(hasExpPeriodic || hasSubPeriodic){
   pSec.classList.remove('hidden');
 
-  res.periodicItems.forEach(item=>{
-    const fb = item.mode==='fixed'
-      ? `<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
-      : `<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
+  const allPeriodicItems = [
+    ...res.periodicItems.map(i=>({...i,_type:'exp'})),
+    ...subs.pDetails.map(i=>({...i,_type:'sub'}))
+  ];
+  const sortedPeriodicItems = sortByFiscalDate(allPeriodicItems); // ★年度順（4月始まり）にソート
+
+  let grandPTotal=0, grandPH=0, grandPW=0;
+
+  sortedPeriodicItems.forEach(item=>{
+    // 表示されている項目（繰り越し中も含む）をそのまま合算する（振込サマリの合計と同じ考え方）
+    grandPTotal += item.amount;
+    grandPH     += item.hVal;
+    grandPW     += item.wVal;
+
+    const carryoverBadge = item.isCarryover
+      ? `<span class="badge badge-carryover">⚠️繰り越し（${item.payYear}年${item.payMonth}月分）</span>`
+      : '';
+
+    let typeBadge, payerBadgeHtml;
+    if(item._type==='exp'){
+      typeBadge = `<span class="badge badge-cat">費用</span>`;
+      payerBadgeHtml = item.mode==='fixed'
+        ? `<span class="badge badge-fixed">固定 夫${item.hPct.toFixed(0)}%:妻${(100-item.hPct).toFixed(0)}%</span>`
+        : `<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
+    }else{
+      typeBadge = `<span class="badge badge-sub">サブスク</span>`;
+      payerBadgeHtml = `<span class="badge ${item.badgeCls}">${item.label}</span>`;
+    }
+
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${item.name}<span class="badge badge-cat">費用</span><span class="badge badge-periodic">${item.interval}ヶ月ごと</span>${fb}</td><td>${fmt(item.amount)}</td><td style="font-size:0.82rem;color:#e65100;font-weight:700;">${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
+    if(item.isCarryover) tr.className='periodic-row-carryover'; // ★繰り越し行を薄い赤背景にする
+    tr.innerHTML=`<td>${item.name}${typeBadge}<span class="badge badge-periodic">${item.interval}ヶ月ごと</span>${carryoverBadge}${payerBadgeHtml}</td><td>${fmt(item.amount)}</td><td style="font-size:0.82rem;color:#e65100;font-weight:700;">${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
     pBody.appendChild(tr);
   });
 
-  subs.pDetails.forEach(item=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${item.name}<span class="badge badge-sub">サブスク</span><span class="badge badge-periodic">${item.interval}ヶ月ごと</span><span class="badge ${item.badgeCls}">${item.label}</span></td><td>${fmt(item.amount)}</td><td style="font-size:0.82rem;color:#e65100;font-weight:700;">${item.account||'—'}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;
-    pBody.appendChild(tr);
-  });
-
-  const grandPTotal = (res.pTotal||0) + (subs.pTotal||0);
-  const grandPH = (res.pH||0) + (subs.pH||0);
-  const grandPW = (res.pW||0) + (subs.pW||0);
   document.getElementById('periodicSubTotal').textContent=fmt(grandPTotal);
   document.getElementById('periodicSubH').textContent=fmt(grandPH);
   document.getElementById('periodicSubW').textContent=fmt(grandPW);
 }else{
   pSec.classList.add('hidden');
 }
+
 
 
   if(pieChart)pieChart.destroy();
@@ -1818,23 +2085,75 @@ function renderPersonPeriodSummary(ppData){
       // ▲▲▲ ここまで追加 ▲▲▲
 
       sortedAcctNames.forEach((acctName,idx)=>{
-        const acctData = accts[acctName];
-        const paidKey = transferPaidKey(acctName, periodKey, person.key);
-        const paid = isPaid(paidKey);
+         const acctData = accts[acctName];
+        const isPeriodicPeriod = (periodKey === 'periodic');
+        const isYearlyPeriod = (periodKey === 'bonus_summer' || periodKey === 'bonus_winter' || periodKey === 'yearly_lump');
+        const paid = isPeriodicPeriod
+          ? acctData.items.every(it => it.itemKey && isPeriodicCycleSettled(it.itemKey, it.payYear, it.payMonth, true, true))
+          : isYearlyPeriod
+            ? acctData.items.every(it => it.itemKey && isYearlySettled(it.itemKey, it.payYear, true, true))
+            : isPaid(transferPaidKey(acctName, periodKey, person.key));
+
+
         const safeAcct = acctName.replace(/'/g,"\\'");
         const detailId = `td_${person.key}_${periodKey}_${idx}`;
 
-        // ▼▼▼ 追加：明細項目も期限が近い順に並び替える ▼▼▼
-        const sortedItems = [...acctData.items].sort((a,b)=>calcDueScore(a.dueDay,a.dueMonth)-calcDueScore(b.dueDay,b.dueMonth));
-        // ▲▲▲ ここまで追加 ▲▲▲
-
+        // ▼▼▼ 修正：年一括・ボーナス・Nヶ月ごと払いは年度順（4月始まり）、月々の費用は期限が近い順に並び替える ▼▼▼
+        const sortedItems = (isYearlyPeriod || isPeriodicPeriod)
+          ? sortByFiscalDate(acctData.items)
+          : [...acctData.items].sort((a,b)=>calcDueScore(a.dueDay,a.dueMonth)-calcDueScore(b.dueDay,b.dueMonth));
+        // ▲▲▲ ここまで修正 ▲▲▲
         const itemsRows = sortedItems.map(it=>{
           const dlabel = dueDateLabel(it.dueDay, it.dueMonth);
           const score = calcDueScore(it.dueDay, it.dueMonth);
-          const urgent = (!paid && dlabel && score<=3) ? `<span class="badge badge-urgent">⚠️あと${score}日</span>`
-            : (!paid && dlabel && score<=7) ? `<span class="badge badge-soon">🔔あと${score}日</span>` : '';
-          return `<div class="detail-row"><span class="detail-row-name">${it.name} <span class="badge badge-cat">${it.category}</span>${dlabel?`<span style="font-size:0.75rem;color:#e65100;font-weight:700;margin-left:4px;">🗓${dlabel}</span>`:''}${urgent}</span><span class="detail-row-vals">${fmt(it.val)}</span></div>`;
+          let itemPaid;
+          if(isPeriodicPeriod && it.itemKey){
+            itemPaid = isPeriodicCyclePaid(it.itemKey, it.payYear, it.payMonth, person.key);
+          }else if(isYearlyPeriod && it.itemKey){
+            itemPaid = isYearlyPaid(it.itemKey, it.payYear, person.key);
+          }else{
+            itemPaid = paid;
+          }
+          const carryoverLabel = isYearlyPeriod
+            ? `${it.payYear}年分` : `${it.payYear}年${it.payMonth}月分`;
+          const carryoverBadge = it.isCarryover
+            ? `<span class="badge badge-carryover">⚠️未払い繰り越し（${carryoverLabel}）</span>` : '';
+          const urgent = (!itemPaid && dlabel && score<=3) ? `<span class="badge badge-urgent">⚠️あと${score}日</span>`
+            : (!itemPaid && dlabel && score<=7) ? `<span class="badge badge-soon">🔔あと${score}日</span>` : '';
+
+          // ★修正：チェックボックスを「金額の直下・右端」に固定し、金額とセットで1つのブロックにすることで
+          // どの項目に対するチェックかを一目で分かるようにする
+          const paidClass = person.key==='h' ? 'paid-h' : 'paid-w';
+          let itemCheckHtml = '';
+          if(isPeriodicPeriod && it.itemKey){
+            itemCheckHtml = `<label class="item-paid-label ${itemPaid?paidClass:''}" style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+              <input type="checkbox" ${itemPaid?'checked':''} onchange="togglePeriodicItemPaid('${it.itemKey}',${it.payYear},${it.payMonth},'${person.key}',this.checked)">
+              ${person.key==='h'?'夫済':'妻済'}
+            </label>`;
+          }else if(isYearlyPeriod && it.itemKey){
+            itemCheckHtml = `<label class="item-paid-label ${itemPaid?paidClass:''}" style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+              <input type="checkbox" ${itemPaid?'checked':''} onchange="toggleYearlyItemPaid('${it.itemKey}',${it.payYear},'${person.key}',this.checked)">
+              ${person.key==='h'?'夫済':'妻済'}
+            </label>`;
+          }
+
+          const rowBg = it.isCarryover ? 'background:#fff5f5;' : (itemPaid ? 'background:#f1f8e9;' : '');
+          return `<div class="detail-row" style="align-items:flex-start;padding:10px 0;${rowBg}">
+            <span class="detail-row-name" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;flex:1;min-width:0;">
+              ${it.name}
+              <span class="badge badge-cat">${it.category}</span>
+              ${carryoverBadge}
+              ${dlabel?`<span style="font-size:0.75rem;color:#e65100;font-weight:700;">🗓${dlabel}</span>`:''}
+              ${urgent}
+            </span>
+            <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;margin-left:8px;">
+              <span class="detail-row-vals" style="font-weight:700;">${fmt(it.val)}</span>
+              ${itemCheckHtml}
+            </span>
+          </div>`;
         }).join('');
+
+
 
         // 口座カードには、その中で最も近い期限を代表として表示する
         const nearestLabel = (!paid && sortedItems.length) ? dueDateLabel(sortedItems[0].dueDay, sortedItems[0].dueMonth) : '';
@@ -1842,20 +2161,27 @@ function renderPersonPeriodSummary(ppData){
         const acctUrgent = (!paid && nearestLabel && nearestScore<=3) ? `<span class="badge badge-urgent">⚠️あと${nearestScore}日</span>`
           : (!paid && nearestLabel && nearestScore<=7) ? `<span class="badge badge-soon">🔔あと${nearestScore}日</span>` : '';
 
+          const hasCarryover = (isPeriodicPeriod || isYearlyPeriod) && acctData.items.some(it=>it.isCarryover);
+        const acctCardClass = paid ? 'paid' : (hasCarryover ? 'carryover' : '');
+        const acctCheckHtml = (isPeriodicPeriod || isYearlyPeriod)
+          ? `<div style="font-size:0.78rem;color:#888;padding:4px 0 8px;">↓ 明細内の各項目ごとに振込済みチェックを入れてください</div>`
+          : `<label class="acct-check-wrap">
+              <input type="checkbox" ${paid?'checked':''} onchange="toggleTransferPaid('${safeAcct}','${periodKey}','${person.key}',this.checked,this)">
+              振込済みにする（${monthKey()}分）
+             </label>`;
+
         html += `
-          <div class="transfer-acct-item ${paid?'paid':''}">
+          <div class="transfer-acct-item ${acctCardClass}">
             <div class="transfer-acct-header">
               <span class="transfer-acct-name">🏦 ${acctName}</span>
               <span class="transfer-acct-amount ${person.key==='h'?'husband-amount':'wife-amount'}">${fmt(acctData.total)}</span>
             </div>
             ${nearestLabel ? `<div style="font-size:0.8rem;color:#e65100;font-weight:700;margin-bottom:6px;">🗓 最短期限：${nearestLabel} ${acctUrgent}</div>` : ''}
-            <label class="acct-check-wrap">
-              <input type="checkbox" ${paid?'checked':''} onchange="toggleTransferPaid('${safeAcct}','${periodKey}','${person.key}',this.checked,this)">
-              振込済みにする（${monthKey()}分）
-            </label>
+            ${acctCheckHtml}
             <button class="detail-toggle" style="margin-top:6px;" onclick="toggleDetail('${detailId}',this)">📋 明細を表示する ▼</button>
             <div id="${detailId}" class="hidden">${itemsRows}</div>
           </div>`;
+
       });
 
 
@@ -1873,8 +2199,17 @@ function renderPersonPeriodSummary(ppData){
 
 function renderBonusSection(sId,bId,tId,hId,wId,total,hVal,wVal,items){
   const sec=document.getElementById(sId),tbody=document.getElementById(bId);tbody.innerHTML='';
-  if(total<=0){sec.classList.add('hidden');return;}sec.classList.remove('hidden');
-  items.forEach(item=>{
+  if(items.length===0){sec.classList.add('hidden');return;}
+  sec.classList.remove('hidden');
+  const sortedItems = sortByFiscalDate(items);
+
+  let grandTotal=0, grandH=0, grandW=0;
+
+  sortedItems.forEach(item=>{
+    grandTotal += item.amount;
+    grandH     += item.hVal;
+    grandW     += item.wVal;
+
     let fb='';
     if(item.isSaving){
       fb=`<span class="badge badge-sav">💰貯蓄・投資</span><span class="badge ${payerBadge(item.payer)}">${payerLabel(item.payer)}</span>`;
@@ -1883,10 +2218,31 @@ function renderBonusSection(sId,bId,tId,hId,wId,total,hVal,wVal,items){
     }else{
       fb=`<span class="badge ${payerBadge(item.mode)}">${payerLabel(item.mode)}</span>`;
     }
-    const tr=document.createElement('tr');tr.innerHTML=`<td>${item.name}${fb}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}</td><td class="wife-amount">${fmt(item.wVal)}</td>`;tbody.appendChild(tr);
+
+    const carryoverBadge = item.isCarryover
+      ? `<span class="badge badge-carryover">⚠️未払い繰り越し（${item.payYear}年分）</span>` : '';
+
+    const hPaid = item.itemKey ? isYearlyPaid(item.itemKey, item.payYear, 'h') : false;
+    const wPaid = item.itemKey ? isYearlyPaid(item.itemKey, item.payYear, 'w') : false;
+
+    // ★0円のときはチェックボックスを出さない
+    const hCheckHtml = (item.itemKey && item.hVal > 0)
+      ? `<div><label class="item-paid-label ${hPaid?'paid-h':''}"><input type="checkbox" ${hPaid?'checked':''} onchange="toggleYearlyItemPaid('${item.itemKey}',${item.payYear},'h',this.checked)"> 夫済</label></div>` : '';
+    const wCheckHtml = (item.itemKey && item.wVal > 0)
+      ? `<div><label class="item-paid-label ${wPaid?'paid-w':''}"><input type="checkbox" ${wPaid?'checked':''} onchange="toggleYearlyItemPaid('${item.itemKey}',${item.payYear},'w',this.checked)"> 妻済</label></div>` : '';
+
+    const tr=document.createElement('tr');
+    if(item.isCarryover) tr.className='periodic-row-carryover';
+    tr.innerHTML=`<td>${item.name}${fb}${carryoverBadge}</td><td>${fmt(item.amount)}</td><td class="husband-amount">${fmt(item.hVal)}${hCheckHtml}</td><td class="wife-amount">${fmt(item.wVal)}${wCheckHtml}</td>`;
+    tbody.appendChild(tr);
   });
-  document.getElementById(tId).textContent=fmt(total);document.getElementById(hId).textContent=fmt(hVal);document.getElementById(wId).textContent=fmt(wVal);
+
+  document.getElementById(tId).textContent=fmt(grandTotal);
+  document.getElementById(hId).textContent=fmt(grandH);
+  document.getElementById(wId).textContent=fmt(grandW);
 }
+
+
 
 async function saveHistory(){
   const data=getFormData();
@@ -2107,7 +2463,14 @@ async function init(){
   masterLoaded=true;
   renderMasterLists();
 
-  try{const pd=await fbGet(PAID_PATH);if(pd)paidData=pd;}catch(e){}
+  try{
+    const pd=await fbGet(PAID_PATH);
+    paidData = pd || {};
+    if(!paidData.periodicLog) paidData.periodicLog = {};
+    if(!paidData.yearlyLog) paidData.yearlyLog = {};
+  }catch(e){}
+
+
 
   try{
     const data=await fbGet(CURRENT_PATH);
@@ -2139,9 +2502,12 @@ async function init(){
   });
   fbListenSSEStable(PAID_PATH,event=>{
     if(!event||!event.data)return;
-    paidData=event.data;
+    paidData = event.data || {};
+    if(!paidData.periodicLog) paidData.periodicLog = {};
+    if(!paidData.yearlyLog) paidData.yearlyLog = {};
     if(lastCalcResult)calculate(false);
   });
+
 }
 window.addEventListener('DOMContentLoaded',init);
 </script>
