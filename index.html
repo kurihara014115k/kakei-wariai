@@ -1578,6 +1578,20 @@ function calcDueScore(dueDay, dueMonth){
   return Math.ceil((target-now)/(1000*60*60*24));
 }
 
+// 「月々」の項目を、起算日（billingStartDay）を先頭とした固定のサイクル順（16→17→…→31→1→…→15）で
+// 並べるための専用スコア。calcDueScore()は「今日から見た実際の残り日数」を返すため、
+// 起算日そのもの（例：16日）でも、今日がその日を過ぎていれば「次は来月の16日」という
+// 計算になり、残り日数が大きくなって並びの最後に飛んでしまう。これはバッジ用の
+// カウントダウンとしては正しい挙動だが、「サイクル内の並び順を固定して見たい」という
+// 目的には合わない。そのため、今日の日付に一切依存しない、並び替え専用のスコアを別に用意する。
+function monthlyDayScore(dueDay){
+  const d = parseInt(dueDay) || 0;
+  if(!d) return 999; // 期限未設定の項目は最後に表示する
+  const s = masterData.billingStartDay || 16;
+  return d >= s ? (d - s) : (d - s + 31);
+}
+
+
 function compareByDue(paidA, dueDayA, dueMonthA, paidB, dueDayB, dueMonthB){
   if(paidA !== paidB) return paidA ? 1 : -1;
   const scoreA = calcDueScore(dueDayA, dueMonthA);
@@ -2177,24 +2191,31 @@ function renderPersonPeriodSummary(ppData){
         <div class="transfer-period-title pt-${periodKey}"><span>${periodLabel(periodKey)}</span><span>合計：${fmt(periodTotal)}</span></div>`;
 
 
-           // ▼▼▼ 追加：口座カードを「振込済みは最後・期限が近い順」に並び替える ▼▼▼
+       // ▼▼▼ 修正：口座カードは「振込済みは最後」を最優先にし、それ以外は期間の種類に応じて並べる。
+      // 「月々」は起算日を先頭にした固定のサイクル順、それ以外（ボーナス・年一括・Nヶ月ごと）は
+      // 既存の年度順（4月始まり）を使う。以前は同じ内容のsortが2回連続で実行される
+      // 冗長なコードになっていたため、この機会に1回にまとめて整理する ▼▼▼
       const sortedAcctNames = [...acctNames].sort((a,b)=>{
         const paidA = isPaid(transferPaidKey(a, periodKey, person.key));
         const paidB = isPaid(transferPaidKey(b, periodKey, person.key));
-        const minScoreA = Math.min(...accts[a].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
-        const minScoreB = Math.min(...accts[b].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
-        return compareByDue(paidA, null, null, paidB, null, null) || (minScoreA - minScoreB);
+        if(paidA !== paidB) return paidA ? 1 : -1;
+
+        if(periodKey === 'monthly'){
+          const minA = Math.min(...accts[a].items.map(it=>monthlyDayScore(it.dueDay)));
+          const minB = Math.min(...accts[b].items.map(it=>monthlyDayScore(it.dueDay)));
+          return minA - minB;
+        }
+        // ボーナス・年一括・Nヶ月ごとは、今日からの残り日数ではなく年度順で比較する
+        const getFiscalScore = it => {
+          const m = parseInt(it.dueMonth) || parseInt(it.payMonth) || 0;
+          return fiscalMonthScore(m) * 100 + (parseInt(it.dueDay) || 99);
+        };
+        const minA = Math.min(...accts[a].items.map(getFiscalScore));
+        const minB = Math.min(...accts[b].items.map(getFiscalScore));
+        return minA - minB;
       });
-      // 上のcompareByDueは振込済みの判定だけに使い、スコアはあらかじめ計算済みのminScoreを使う
-      sortedAcctNames.sort((a,b)=>{
-        const paidA = isPaid(transferPaidKey(a, periodKey, person.key));
-        const paidB = isPaid(transferPaidKey(b, periodKey, person.key));
-        if(paidA!==paidB) return paidA?1:-1;
-        const minScoreA = Math.min(...accts[a].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
-        const minScoreB = Math.min(...accts[b].items.map(it=>calcDueScore(it.dueDay,it.dueMonth)));
-        return minScoreA - minScoreB;
-      });
-      // ▲▲▲ ここまで追加 ▲▲▲
+      // ▲▲▲ ここまで修正 ▲▲▲
+
 
       sortedAcctNames.forEach((acctName,idx)=>{
          const acctData = accts[acctName];
@@ -2212,11 +2233,13 @@ function renderPersonPeriodSummary(ppData){
         const acctInfoId = `acctinfo_${person.key}_${periodKey}_${idx}`; // ★追加：口座情報の折りたたみ用ID
 
 
-        // ▼▼▼ 修正：年一括・ボーナス・Nヶ月ごと払いは年度順（4月始まり）、月々の費用は期限が近い順に並び替える ▼▼▼
+               // ▼▼▼ 修正：年一括・ボーナス・Nヶ月ごと払いは年度順（4月始まり）、
+        // 月々の費用は「起算日を先頭にした固定のサイクル順」（16→17→…→31→1→…→15）に並び替える ▼▼▼
         const sortedItems = (isYearlyPeriod || isPeriodicPeriod)
           ? sortByFiscalDate(acctData.items)
-          : [...acctData.items].sort((a,b)=>calcDueScore(a.dueDay,a.dueMonth)-calcDueScore(b.dueDay,b.dueMonth));
+          : [...acctData.items].sort((a,b)=>monthlyDayScore(a.dueDay)-monthlyDayScore(b.dueDay));
         // ▲▲▲ ここまで修正 ▲▲▲
+
         const itemsRows = sortedItems.map(it=>{
           const dlabel = dueDateLabel(it.dueDay, it.dueMonth);
           const score = calcDueScore(it.dueDay, it.dueMonth);
@@ -2269,9 +2292,20 @@ function renderPersonPeriodSummary(ppData){
 
 
 
-        // 口座カードには、その中で最も近い期限を代表として表示する
-        const nearestLabel = (!paid && sortedItems.length) ? dueDateLabel(sortedItems[0].dueDay, sortedItems[0].dueMonth) : '';
-        const nearestScore = sortedItems.length ? calcDueScore(sortedItems[0].dueDay, sortedItems[0].dueMonth) : Infinity;
+          // ★修正：並び順が「固定のサイクル順・年度順」になったため、配列の先頭（sortedItems[0]）が
+        // 必ずしも「今日から見て一番近い期限」とは限らなくなった。そのため、口座カードの
+        // 代表表示（🗓最短期限バッジ）は、明細すべての中から実際の残り日数（calcDueScore）が
+        // 最小のものを別途探し出して使うようにする。
+        let nearestItem = null, nearestScoreCalc = Infinity;
+        if(!paid && sortedItems.length){
+          sortedItems.forEach(it=>{
+            const sc = calcDueScore(it.dueDay, it.dueMonth);
+            if(sc < nearestScoreCalc){ nearestScoreCalc = sc; nearestItem = it; }
+          });
+        }
+        const nearestLabel = nearestItem ? dueDateLabel(nearestItem.dueDay, nearestItem.dueMonth) : '';
+        const nearestScore = nearestItem ? nearestScoreCalc : Infinity;
+
         const acctUrgent = (!paid && nearestLabel && nearestScore<=3) ? `<span class="badge badge-urgent">⚠️あと${nearestScore}日</span>`
           : (!paid && nearestLabel && nearestScore<=7) ? `<span class="badge badge-soon">🔔あと${nearestScore}日</span>` : '';
 
