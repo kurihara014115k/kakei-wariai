@@ -578,7 +578,9 @@ let masterData={
   insCompanies:['〇〇生命','△△生命','□□損保','◇◇保険'],
   ratios:      ['60:40'],
   billingStartDay: 16, // ★追加：家計の締め日（起算日）。デフォルトは16日
+  accountInfo: {}, // ★追加：口座名をキーにした{branch, accType, number}。accounts配列自体は変更しない
 };
+
 
 let masterLoaded=false;
 
@@ -810,13 +812,52 @@ function toArray(val){
   if(val && typeof val === 'object') return Object.values(val).filter(v=>v!==null&&v!==undefined);
   return [];
 }
+// 口座情報（支店名・口座種別・口座番号）を取得する。未設定なら空文字を返す
+function getAccountInfo(acctName){
+  const info = (masterData.accountInfo && masterData.accountInfo[acctName]) || {};
+  return { branch: info.branch||'', accType: info.accType||'', number: info.number||'' };
+}
+// いずれかのフィールドが1つでも入力されているかを判定する（振込サマリでボタンを出すかどうかの判定に使う）
+function hasAccountInfo(acctName){
+  const info = getAccountInfo(acctName);
+  return !!(info.branch || info.accType || info.number);
+}
+// 設定タブの口座情報入力欄が変更されたときに呼ばれる
+function updateAccountInfoField(acctName, field, val){
+  // ★マスタ読み込み完了前は保存できないことを、無言で終わらせずに明示する
+  if(!masterLoaded){
+    showToast('⏳ まだ読み込み中です。少し待ってから再度お試しください');
+    return;
+  }
+  if(!masterData.accountInfo) masterData.accountInfo = {};
+  if(!masterData.accountInfo[acctName]) masterData.accountInfo[acctName] = {branch:'',accType:'',number:''};
+  masterData.accountInfo[acctName][field] = val.trim();
+  saveMaster();
+  showToast('💾 口座情報を保存しました'); // ★保存されたことを目に見える形で示す
+}
+
+
 
 function renderMasterLists(){
+  // ★追加：マスタ一覧内の<input>に現在フォーカスが当たっている場合は再描画をスキップする。
+  // これが無いと、1つの欄を保存した直後にFirebase経由で自分自身の書き込みがSSEで
+  // エコーとして返ってきてしまい、一覧全体が再描画されて、次の欄に移って入力中の
+  // 内容やフォーカスそのものが消えてしまう（これが「口座情報を入力できない」の真の原因）。
+  // ボタン操作（追加・削除・並び替え）はここでは対象にしないため、影響を受けない。
+  const active = document.activeElement;
+  const listIds = ['masterRatioList','masterAccountList','masterInsTypeList','masterInsCompanyList'];
+  const isTypingInMasterList = active && active.tagName === 'INPUT' && listIds.some(id=>{
+    const listEl = document.getElementById(id);
+    return listEl && listEl.contains(active);
+  });
+  if(isTypingInMasterList) return;
+
   renderOneMasterList('ratios','masterRatioList');
   renderOneMasterList('accounts','masterAccountList');
   renderOneMasterList('insTypes','masterInsTypeList');
   renderOneMasterList('insCompanies','masterInsCompanyList');
 }
+
 function renderBillingStartDaySetting(){
   const sel=document.getElementById('billingStartDaySelect');
   if(!sel) return;
@@ -837,22 +878,77 @@ function renderOneMasterList(key,elId){
   if(!masterData[key]||!masterData[key].length){el.innerHTML='<div class="master-empty">まだ登録されていません</div>';return;}
   el.innerHTML='';
   masterData[key].forEach((name,idx)=>{
-    const div=document.createElement('div');div.className='master-item';
+    const div=document.createElement('div');
+    div.className='master-item';
+    div.style.flexDirection='column';
+    div.style.alignItems='stretch';
+
     const isRatio=(key==='ratios');
     const parts=isRatio?name.split(':'):null;
-    const inputHtml=isRatio
-      ?`<span class="ratio-display"><span class="ratio-h">夫${parts[0]}%</span><span class="ratio-sep">:</span><span class="ratio-w">妻${parts[1]}%</span></span>`
-      :`<input type="text" value="${name}" onchange="updateMasterItem('${key}',${idx},this.value)">`;
-    div.innerHTML=`
-      ${inputHtml}
-      <div class="row-controls">
-        <button class="btn-move-row" onclick="moveMasterItem('${key}',${idx},-1)" ${idx===0?'disabled':''}>↑</button>
-        <button class="btn-move-row" onclick="moveMasterItem('${key}',${idx},1)" ${idx===masterData[key].length-1?'disabled':''}>↓</button>
-        <button class="btn-master-del" onclick="deleteMasterItem('${key}',${idx})">✕</button>
-      </div>`;
+
+    const topRow=document.createElement('div');
+    topRow.style.cssText='display:flex;align-items:center;gap:8px;width:100%;flex-wrap:wrap;';
+
+    if(isRatio){
+      const span=document.createElement('span');
+      span.className='ratio-display';
+      span.innerHTML=`<span class="ratio-h">夫${parts[0]}%</span><span class="ratio-sep">:</span><span class="ratio-w">妻${parts[1]}%</span>`;
+      topRow.appendChild(span);
+    }else{
+      const nameInput=document.createElement('input');
+      nameInput.type='text';
+      nameInput.value=name;
+      nameInput.style.cssText='flex:1;font-size:0.9rem;color:#444;border:none;background:transparent;border-bottom:1px dashed #ccc;outline:none;padding:4px 2px;min-width:100px;';
+      nameInput.addEventListener('change',()=>updateMasterItem(key,idx,nameInput.value));
+      topRow.appendChild(nameInput);
+    }
+
+    const controls=document.createElement('div');
+    controls.className='row-controls';
+    const upBtn=document.createElement('button');
+    upBtn.className='btn-move-row'; upBtn.textContent='↑'; upBtn.disabled=(idx===0);
+    upBtn.addEventListener('click',()=>moveMasterItem(key,idx,-1));
+    const downBtn=document.createElement('button');
+    downBtn.className='btn-move-row'; downBtn.textContent='↓'; downBtn.disabled=(idx===masterData[key].length-1);
+    downBtn.addEventListener('click',()=>moveMasterItem(key,idx,1));
+    const delBtn=document.createElement('button');
+    delBtn.className='btn-master-del'; delBtn.textContent='✕';
+    delBtn.addEventListener('click',()=>deleteMasterItem(key,idx));
+    controls.appendChild(upBtn); controls.appendChild(downBtn); controls.appendChild(delBtn);
+    topRow.appendChild(controls);
+    div.appendChild(topRow);
+
+    // ★口座名マスタのときだけ、支店名・口座種別・口座番号の入力欄を下段に追加する
+    if(key==='accounts'){
+      const info=getAccountInfo(name);
+      const bottomRow=document.createElement('div');
+      bottomRow.style.cssText='display:flex;gap:6px;flex-wrap:wrap;width:100%;margin-top:8px;padding-top:8px;border-top:1px dashed #e0e0f0;';
+
+      const fields=[
+        {field:'branch', placeholder:'支店名（例：新宿支店）', value:info.branch},
+        {field:'accType', placeholder:'種別（例：普通）',       value:info.accType},
+        {field:'number',  placeholder:'口座番号',               value:info.number},
+      ];
+      fields.forEach(f=>{
+        const input=document.createElement('input');
+        input.type='text';
+        input.value=f.value;
+        input.placeholder=f.placeholder;
+        input.style.cssText='flex:1;min-width:110px;font-size:0.8rem;padding:6px 8px;border:1.5px solid #e0e0f0;border-radius:6px;outline:none;color:#555;background:white;';
+        const capturedName=name, capturedField=f.field;
+        input.addEventListener('change',()=>{ updateAccountInfoField(capturedName, capturedField, input.value); });
+        input.addEventListener('focus',()=>{ input.style.borderColor='#667eea'; });
+        input.addEventListener('blur', ()=>{ input.style.borderColor='#e0e0f0'; });
+        bottomRow.appendChild(input);
+      });
+      div.appendChild(bottomRow);
+    }
+
     el.appendChild(div);
   });
 }
+
+
 function addMasterItem(key,inputId){
   const input=document.getElementById(inputId);const val=input.value.trim();
   if(!val){showToast('入力してください');return;}
@@ -870,13 +966,29 @@ function addMasterItem(key,inputId){
   const toastMsg=(key==='ratios')?`✅ 追加しました：${ratioToLabel(val)}`:`✅ 追加しました：${val}`;
   showToast(toastMsg);
 }
-function updateMasterItem(key,idx,val){const v=val.trim();if(!v)return;masterData[key][idx]=v;refreshAllDropdowns();saveMaster();}
+function updateMasterItem(key,idx,val){
+  const v=val.trim();if(!v)return;
+  const oldName = masterData[key][idx];
+  masterData[key][idx]=v;
+  // ★追加：口座名を変更したときは、紐づく口座情報（accountInfo）も新しい名前に引き継ぐ
+  if(key==='accounts' && oldName!==v && masterData.accountInfo && masterData.accountInfo[oldName]){
+    masterData.accountInfo[v] = masterData.accountInfo[oldName];
+    delete masterData.accountInfo[oldName];
+  }
+  refreshAllDropdowns();saveMaster();
+}
+
 function deleteMasterItem(key,idx){
   const r=masterData[key][idx];masterData[key].splice(idx,1);
+  // ★追加：口座を削除したときは、紐づく口座情報（accountInfo）も一緒に削除する
+  if(key==='accounts' && masterData.accountInfo && masterData.accountInfo[r]){
+    delete masterData.accountInfo[r];
+  }
   renderMasterLists();refreshAllDropdowns();saveMaster();
   const toastMsg=(key==='ratios')?`🗑 削除しました：${ratioToLabel(r)}`:`🗑 削除しました：${r}`;
   showToast(toastMsg);
 }
+
 function moveMasterItem(key,idx,dir){
   const arr=masterData[key];const ni=idx+dir;
   if(ni<0||ni>=arr.length)return;
@@ -2095,8 +2207,10 @@ function renderPersonPeriodSummary(ppData){
             : isPaid(transferPaidKey(acctName, periodKey, person.key));
 
 
-        const safeAcct = acctName.replace(/'/g,"\\'");
+         const safeAcct = acctName.replace(/'/g,"\\'");
         const detailId = `td_${person.key}_${periodKey}_${idx}`;
+        const acctInfoId = `acctinfo_${person.key}_${periodKey}_${idx}`; // ★追加：口座情報の折りたたみ用ID
+
 
         // ▼▼▼ 修正：年一括・ボーナス・Nヶ月ごと払いは年度順（4月始まり）、月々の費用は期限が近い順に並び替える ▼▼▼
         const sortedItems = (isYearlyPeriod || isPeriodicPeriod)
@@ -2161,7 +2275,7 @@ function renderPersonPeriodSummary(ppData){
         const acctUrgent = (!paid && nearestLabel && nearestScore<=3) ? `<span class="badge badge-urgent">⚠️あと${nearestScore}日</span>`
           : (!paid && nearestLabel && nearestScore<=7) ? `<span class="badge badge-soon">🔔あと${nearestScore}日</span>` : '';
 
-          const hasCarryover = (isPeriodicPeriod || isYearlyPeriod) && acctData.items.some(it=>it.isCarryover);
+        const hasCarryover = (isPeriodicPeriod || isYearlyPeriod) && acctData.items.some(it=>it.isCarryover);
         const acctCardClass = paid ? 'paid' : (hasCarryover ? 'carryover' : '');
         const acctCheckHtml = (isPeriodicPeriod || isYearlyPeriod)
           ? `<div style="font-size:0.78rem;color:#888;padding:4px 0 8px;">↓ 明細内の各項目ごとに振込済みチェックを入れてください</div>`
@@ -2170,12 +2284,27 @@ function renderPersonPeriodSummary(ppData){
               振込済みにする（${monthKey()}分）
              </label>`;
 
+        // ★追加：口座情報（支店名・種別・口座番号）が登録されていれば、折りたたみボタンとパネルを用意する
+        // 既存のtoggleDetail()を再利用することで、他の「明細を表示する▼」ボタンと文言の挙動を統一する
+        const acctInfo = getAccountInfo(acctName);
+        const acctInfoBtnHtml = hasAccountInfo(acctName)
+          ? `<button class="detail-toggle" style="width:auto;display:inline-block;padding:3px 10px;font-size:0.72rem;margin-left:8px;background:#fff8e1;color:#e65100;border-color:#ffe082;" onclick="toggleDetail('${acctInfoId}',this)">🏦 口座情報を表示する ▼</button>`
+          : '';
+        const acctInfoPanelHtml = hasAccountInfo(acctName)
+          ? `<div id="${acctInfoId}" class="hidden" style="font-size:0.82rem;color:#555;background:#fffdf5;border:1px dashed #ffe082;border-radius:8px;padding:8px 12px;margin-bottom:10px;">
+               ${acctInfo.branch ? `<div>🏢 支店名：${acctInfo.branch}</div>` : ''}
+               ${acctInfo.accType ? `<div>📘 種別：${acctInfo.accType}</div>` : ''}
+               ${acctInfo.number ? `<div>🔢 口座番号：${acctInfo.number}</div>` : ''}
+             </div>`
+          : '';
+
         html += `
           <div class="transfer-acct-item ${acctCardClass}">
             <div class="transfer-acct-header">
-              <span class="transfer-acct-name">🏦 ${acctName}</span>
+              <span class="transfer-acct-name" style="display:inline-flex;align-items:center;flex-wrap:wrap;">🏦 ${acctName}${acctInfoBtnHtml}</span>
               <span class="transfer-acct-amount ${person.key==='h'?'husband-amount':'wife-amount'}">${fmt(acctData.total)}</span>
             </div>
+            ${acctInfoPanelHtml}
             ${nearestLabel ? `<div style="font-size:0.8rem;color:#e65100;font-weight:700;margin-bottom:6px;">🗓 最短期限：${nearestLabel} ${acctUrgent}</div>` : ''}
             ${acctCheckHtml}
             <button class="detail-toggle" style="margin-top:6px;" onclick="toggleDetail('${detailId}',this)">📋 明細を表示する ▼</button>
@@ -2457,7 +2586,9 @@ async function init(){
       if(masterDb.insCompanies)masterData.insCompanies=toArray(masterDb.insCompanies);
       if(masterDb.ratios)masterData.ratios=toArray(masterDb.ratios);
       if(masterDb.billingStartDay) masterData.billingStartDay = parseInt(masterDb.billingStartDay)||16; // ★追加
+      if(masterDb.accountInfo) masterData.accountInfo = masterDb.accountInfo; // ★追加：口座情報（支店名・種別・口座番号）
     }
+
 
   }catch(e){}
   masterLoaded=true;
@@ -2493,8 +2624,10 @@ async function init(){
     if(d.insCompanies)masterData.insCompanies=toArray(d.insCompanies);
     if(d.ratios)masterData.ratios=toArray(d.ratios);
     if(d.billingStartDay) masterData.billingStartDay = parseInt(d.billingStartDay)||16; // ★追加
-    renderMasterLists();refreshAllDropdowns();renderBillingStartDaySetting(); // ★renderBillingStartDaySetting()を追加
+    if(d.accountInfo) masterData.accountInfo = d.accountInfo; // ★追加：口座情報
+    renderMasterLists();refreshAllDropdowns();renderBillingStartDaySetting();
   });
+
 
   fbListenSSEStable(CURRENT_PATH,event=>{
     if(!event||!event.data||!event.data.rows)return;
