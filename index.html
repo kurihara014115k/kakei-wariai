@@ -1729,17 +1729,6 @@ function calcDueScore(dueDay, dueMonth){
   return Math.ceil((target-now)/(1000*60*60*24));
 }
 
-// 明細アイテム（dueDay・dueMonth・payMonthを持つオブジェクト）から
-// 「今日から見た実際の残り日数」を計算する統一ヘルパー。
-// dueMonthが未設定でもpayMonth（自動計算された支払月）があればそれをフォールバックに使う。
-// 両方とも無ければInfinity（無限大扱い＝最後尾）を返す。
-function itemDueScore(it){
-  const month = parseInt(it.dueMonth) || parseInt(it.payMonth) || 0;
-  let day = parseInt(it.dueDay) || 0;
-  if(!day && !month) return Infinity; // 日も月もまったく分からない項目だけ「最後尾」扱いにする
-  if(!day) day = 1; // 月だけ分かっていて日が未設定の項目は、1日を目安にして計算する
-  return calcDueScore(day, month); // 毎月払い（monthが0）の場合は、calcDueScore内部の起算日ロジックに正しく委ねる
-}
 
 
 
@@ -2914,10 +2903,7 @@ async function init(){
 }
 window.addEventListener('DOMContentLoaded',init);
 // 明細アイテム（dueDay・dueMonth・payMonthを持つオブジェクト）から
-// 「今日から見た実際の残り日数」を計算する統一ヘルパー。
-// ・dueMonthが未設定でもpayMonth（自動計算された支払月）があればそれを使う
-// ・月も日もまったく分からない場合だけInfinity（最後尾扱い）にする
-// ・毎月払い（dueMonth無し・日だけ）の場合はcalcDueScoreの起算日ロジックに委ねる
+// 「今日から見た実際の残り日数」を計算する統一ヘルパー
 function itemDueScore(it){
   const month = parseInt(it.dueMonth) || parseInt(it.payMonth) || 0;
   let day = parseInt(it.dueDay) || 0;
