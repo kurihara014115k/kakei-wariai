@@ -2210,7 +2210,45 @@ function renderPersonPeriodSummary(ppData){
 
     let html = `<div class="transfer-person-title ${person.cls}">${person.label}</div>`;
 
-    TRANSFER_PERIODS.forEach(periodKey=>{
+    // ★追加：ブロックの並び順を決める際、「すでに振込済みになった項目」の期限に
+    // 引っ張られて順位が不自然にならないよう、未払いの項目だけを抽出して比較する
+    const getUnpaidItemsForPeriod = (periodKey) => {
+      const isPeriodicPeriod = (periodKey === 'periodic');
+      const isYearlyPeriod = (periodKey === 'bonus_summer' || periodKey === 'bonus_winter' || periodKey === 'yearly_lump');
+      return Object.entries(personData[periodKey]).flatMap(([acctName, acctData]) => {
+        const acctPaidFlag = isPaid(transferPaidKey(acctName, periodKey, person.key));
+        return acctData.items.filter(it=>{
+          if(isPeriodicPeriod && it.itemKey) return !isPeriodicCyclePaid(it.itemKey, it.payYear, it.payMonth, person.key);
+          if(isYearlyPeriod && it.itemKey)    return !isYearlyPaid(it.itemKey, it.payYear, person.key);
+          return !acctPaidFlag;
+        });
+      });
+    };
+
+    // ★期間ブロック（🌻夏ボ・⛄冬ボ・📆年一括「2/3年ごと含む」・🔁Nヶ月ごと）を
+    //   ①「📅月々」は常に先頭固定
+    //   ②残りは「繰り越し中の未払い項目を含むブロック」を優先
+    //   ③それ以外は「未払い項目の最短期限（itemDueScore）が早い順」
+    //   の3段階で並び替える
+    const periodsWithData = TRANSFER_PERIODS.filter(p => Object.keys(personData[p]).length > 0);
+    const sortedPeriods = [...periodsWithData].sort((a,b)=>{
+      if(a === 'monthly' && b !== 'monthly') return -1;
+      if(b === 'monthly' && a !== 'monthly') return 1;
+      if(a === 'monthly' && b === 'monthly') return 0;
+
+      const itemsA = getUnpaidItemsForPeriod(a);
+      const itemsB = getUnpaidItemsForPeriod(b);
+      const carryA = itemsA.some(it => it.isCarryover);
+      const carryB = itemsB.some(it => it.isCarryover);
+      if(carryA !== carryB) return carryA ? -1 : 1;
+
+      const minA = itemsA.length ? Math.min(...itemsA.map(itemDueScore)) : Infinity;
+      const minB = itemsB.length ? Math.min(...itemsB.map(itemDueScore)) : Infinity;
+      return minA - minB;
+    });
+
+    sortedPeriods.forEach(periodKey=>{
+
       const accts = personData[periodKey];
       const acctNames = Object.keys(accts);
       if(acctNames.length===0) return;
