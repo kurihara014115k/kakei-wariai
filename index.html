@@ -2439,10 +2439,20 @@ function renderPersonPeriodSummary(ppData){
     sortedPeriods.forEach(periodKey=>{
       const accts = personData[periodKey];
       const acctNames = Object.keys(accts);
-      const periodTotal = acctNames.reduce((s,a)=>s+accts[a].total,0);
+
+      // ★追加：ヘッダーの合計を「今月中に実際に支払うべき金額（繰り越し中を含む）」だけに絞る。
+      // 「📅月々」は元々毎月必ず発生する家計そのものなので、この絞り込みの対象外とし、
+      // 従来どおり全項目をそのまま合計する（起算日の関係で計算上「来月」判定になる項目が
+      // 誤って除外されてしまうのを防ぐため）。
+      const periodTotal = (periodKey === 'monthly')
+        ? acctNames.reduce((s,a)=>s+accts[a].total,0)
+        : acctNames.reduce((sum, acctName) => {
+            return sum + accts[acctName].items.filter(isDueNow).reduce((s, it) => s + it.val, 0);
+          }, 0);
 
       html += `<div class="transfer-period-block">
         <div class="transfer-period-title pt-${periodKey}"><span>${periodLabel(periodKey)}</span><span>合計：${fmt(periodTotal)}</span></div>`;
+
 
 
       const sortedAcctNames = [...acctNames].sort((a,b)=>{
@@ -2592,12 +2602,18 @@ function renderPersonPeriodSummary(ppData){
              </div>`
           : '';
 
+        // ★追加：口座カードの合計も、期間ブロックのヘッダーと同じ「今月分だけ」の考え方に揶絞る
+        const acctDisplayTotal = (periodKey === 'monthly')
+          ? acctData.total
+          : acctData.items.filter(isDueNow).reduce((s, it) => s + it.val, 0);
+
         html += `
           <div class="transfer-acct-item ${acctCardClass}">
             <div class="transfer-acct-header">
               <span class="transfer-acct-name" style="display:inline-flex;align-items:center;flex-wrap:wrap;">🏦 ${acctName}${acctInfoBtnHtml}</span>
-              <span class="transfer-acct-amount ${person.key==='h'?'husband-amount':'wife-amount'}">${fmt(acctData.total)}</span>
+              <span class="transfer-acct-amount ${person.key==='h'?'husband-amount':'wife-amount'}">${fmt(acctDisplayTotal)}</span>
             </div>
+
             ${acctInfoPanelHtml}
             ${nearestLabel ? `<div style="font-size:0.8rem;color:#e65100;font-weight:700;margin-bottom:6px;">🗓 最短期限：${nearestLabel} ${acctUrgent}</div>` : ''}
             ${acctCheckHtml}
@@ -2946,6 +2962,34 @@ function itemDueScore(it){
   if(!day && !month) return Infinity;
   if(!day) day = 1;
   return calcDueScore(day, month);
+}
+// 項目が「今月中に実際に支払うべきもの（またはすでに期限を過ぎている繰り越し中のもの）」かを判定する。
+// 振込サマリのヘッダー合計・口座カード合計を「今、実際に振り込むべき金額」に絞るためだけに使う。
+// 明細一覧（「明細を表示する」の中身）はこの判定の影響を受けず、従来どおり全項目を表示し続ける
+// （年間・数ヶ月ごとの支払い予定を見失わないようにするため）。
+function isDueNow(it){
+  if(it.isCarryover) return true; // 繰り越し中（期限超過）は無条件で「今払うべき」に含める
+  const day = parseInt(it.dueDay) || 0;
+  const month = parseInt(it.dueMonth) || parseInt(it.payMonth) || 0;
+  if(!month && !day) return true; // 期限情報が全く無い項目は判定できないため、従来通り含めておく
+
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  let target;
+  if(month){
+    // 月＋日が分かっている場合（年一括・Nヶ月ごとの多くはこちら）
+    target = new Date(now.getFullYear(), month-1, day||1);
+    if(target < now) target = new Date(now.getFullYear()+1, month-1, day||1); // すでに過ぎていれば来年扱い
+  }else{
+    // 日だけ指定されている場合は、家計の起算日を基準に判定する（calcDueScoreと同じロジック）
+    const startDay = masterData.billingStartDay || 16;
+    const monthOffset = (day < startDay) ? 1 : 0;
+    let y = now.getFullYear(), m = now.getMonth() + monthOffset;
+    target = new Date(y, m, day);
+    while(target < now){ m += 1; target = new Date(y, m, day); }
+  }
+  // 解決した期限日の「年・月」が、今日の「年・月」とちょうど一致するかどうかで「今月分」を判定する
+  return target.getFullYear() === now.getFullYear() && target.getMonth() === now.getMonth();
 }
 
 </script>
