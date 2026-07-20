@@ -1058,8 +1058,11 @@ async function toggleItemPaid(itemKey,person,checked,cbEl){
 const TRANSFER_PERIODS = ['monthly','bonus_summer','bonus_winter','yearly_lump','periodic'];
 
 function periodLabel(p){
-  return {monthly:'📅 月々', bonus_summer:'🌻 夏ボーナス', bonus_winter:'⛄ 冬ボーナス', yearly_lump:'📆 年一括払い（年払いサブスク含む）',periodic:'🔁 Nヶ月ごとの一括払い（今月分）'}[p] || p;
+  // ★修正：periodicの「（今月分）」は、見出し右側の「今月支払う金額」ラベルと
+  // 表現が重複するため削除する。どちらも同じ意味を伝えているため、片方に一本化する。
+  return {monthly:'📅 月々', bonus_summer:'🌻 夏ボーナス', bonus_winter:'⛄ 冬ボーナス', yearly_lump:'📆 年一括払い（年払いサブスク含む）',periodic:'🔁 Nヶ月ごとの一括払い'}[p] || p;
 }
+
 
 function transferPaidKey(acct,period,person){
   return `transfer__${acct}__${period}__${person}`;
@@ -2444,14 +2447,21 @@ function renderPersonPeriodSummary(ppData){
       // 「📅月々」は元々毎月必ず発生する家計そのものなので、この絞り込みの対象外とし、
       // 従来どおり全項目をそのまま合計する（起算日の関係で計算上「来月」判定になる項目が
       // 誤って除外されてしまうのを防ぐため）。
-      const periodTotal = (periodKey === 'monthly')
+       const periodTotal = (periodKey === 'monthly')
         ? acctNames.reduce((s,a)=>s+accts[a].total,0)
         : acctNames.reduce((sum, acctName) => {
             return sum + accts[acctName].items.filter(isDueNow).reduce((s, it) => s + it.val, 0);
           }, 0);
 
+      // ★追加：月々以外のブロックは、合計が「明細の全項目の合計」ではなく
+      // 「今月中に実際に振り込むべき金額（＋期限超過の繰り越し分）」であることが
+      // ラベルだけで一目で分かるようにする。月々は元々毎月必ず発生する家計そのものなので
+      // 従来どおり「合計」のままにする。
+      const totalLabel = (periodKey === 'monthly') ? '合計' : '今月支払う金額';
+
       html += `<div class="transfer-period-block">
-        <div class="transfer-period-title pt-${periodKey}"><span>${periodLabel(periodKey)}</span><span>合計：${fmt(periodTotal)}</span></div>`;
+        <div class="transfer-period-title pt-${periodKey}"><span>${periodLabel(periodKey)}</span><span style="font-size:0.9rem;white-space:nowrap;">${totalLabel}：${fmt(periodTotal)}</span></div>`;
+
 
 
 
