@@ -1466,7 +1466,7 @@ function calcRatios(hIncome,wIncome,rows,hSummerIncome=0,wSummerIncome=0,hWinter
       const interval = parseInt(r.interval) || 3;
       const startMonth = parseInt(r.startMonth) || 1;
       const itemKey = `exp_periodic_${rawIdx}`;
-      const info = getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct);
+      const info = getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct, r.dueDay, r.dueMonth);
 
       if(info.show){
         const hP = amount * hPct / 100, wP = amount * wPct / 100;
@@ -1581,7 +1581,7 @@ function calcSubs(subsData,hRatio,hSummerRatio=hRatio,hWinterRatio=hRatio){
       const interval   = parseInt(s.interval)   || 3;
       const startMonth = parseInt(s.startMonth) || 1;
       const itemKey = `sub_periodic_${rawIdx}`;
-      const info = getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct);
+      const info = getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct, s.dueDay, s.dueMonth);
 
       if(info.show){
         if(!info.isCarryover){ pTotal += rawAmount; pH += hVal; pW += wVal; }
@@ -1805,17 +1805,53 @@ async function setPeriodicCyclePaid(itemKey, payYear, payMonth, person, checked)
   try{ await fbPut(PAID_PATH, paidData); }catch(e){ showToast('⚠️ 振込状況の同期に失敗しました'); }
 }
 
-// 「今月表示するべきか」「繰り越し中か」を判定する（B-1：未払いなら次の支払月の前月まで繰り越す）
-function getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct){
+// 「今月表示するべきか」「繰り越し中か」を判定する。
+// ★修正：これまでは「支払サイクル月（cycle.payMonth）を過ぎたかどうか」だけで繰り越しを
+// 判定しており、ユーザーが個別に設定した🗓期限（dueDay・dueMonth）を一切見ていなかった。
+// このため、支払サイクル自体は「6月」でも、実際の期限を「7月23日」に設定していた場合、
+// 7月に入った瞬間に（実際の期限である23日をまだ迎えていなくても）繰り越し扱いになってしまっていた。
+// 今後は、支払サイクルの年（cycle.payYear）に🗓期限の月・日を組み合わせた「具体的な期限日」を
+// 求め、それを実際に過ぎているかどうかで繰り越しを判定するようにする。
+function getPeriodicDisplayInfo(interval, startMonth, itemKey, hPct, dueDay, dueMonth){
   const cycle = getPeriodicCycleInfo(interval, startMonth);
   if(!cycle) return { show:false };
+
+  const checkH = (hPct > 0), checkW = (hPct < 100);
+  // 今のサイクル分がすでに両者支払済みなら、今月分であっても表示しない
+  // （ボーナス・年一括払い側のgetYearlyDisplayInfoと同じ考え方に統一する）
+  if(isPeriodicCycleSettled(itemKey, cycle.payYear, cycle.payMonth, checkH, checkW)){
+    return { show:false };
+  }
+
+  // 今まさにそのサイクルの支払月なら、期限のいかんに関わらず「今月分・未払い」として表示する
   if(cycle.isThisMonthPay){
     return { show:true, isCarryover:false, payYear:cycle.payYear, payMonth:cycle.payMonth };
   }
-  // 今月は支払月ではない → 直近の支払サイクルが未払い（負担がある側がまだチェックしていない）なら繰り越し表示
-  const checkH = (hPct > 0), checkW = (hPct < 100);
-  if(isPeriodicCycleSettled(itemKey, cycle.payYear, cycle.payMonth, checkH, checkW)) return { show:false };
-  return { show:true, isCarryover:true, payYear:cycle.payYear, payMonth:cycle.payMonth };
+
+  // ここからは「支払サイクル月はもう過ぎている」ケース。実際の🗓期限（dueDay・dueMonth）を
+  // 基準に、本当に遅延しているかどうかを判定する。
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const d = parseInt(dueDay) || 0;
+  const m = parseInt(dueMonth) || 0;
+
+  let targetMonth, targetYear = cycle.payYear;
+  if(m > 0){
+    // 月・日ともに指定されている（periodicは通常この形式）
+    targetMonth = m;
+    if(m < cycle.payMonth) targetYear += 1; // 例：payMonth=12・dueMonth=1のような年またぎに対応
+  }else if(d > 0){
+    // 日だけ指定されている場合は、支払サイクル月の翌月のその日を目安にする
+    targetMonth = cycle.payMonth + 1;
+    if(targetMonth > 12){ targetMonth = 1; targetYear += 1; }
+  }else{
+    // 期限が何も設定されていない場合は、支払サイクル月を過ぎたら即繰り越し扱いにする（従来どおり）
+    targetMonth = cycle.payMonth;
+  }
+  const targetDate = new Date(targetYear, targetMonth - 1, (d > 0 ? d : 1));
+
+  const isOverdue = now > targetDate;
+  return { show:true, isCarryover:isOverdue, payYear:cycle.payYear, payMonth:cycle.payMonth };
 }
 
 // ── ボーナス・年一括払い（yearly_lump）専用の繰り越し判定・チェック管理（ここから） ──────
