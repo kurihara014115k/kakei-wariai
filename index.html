@@ -338,7 +338,9 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 <div class="container">
   <h1>💰 夫婦家計割合計算アプリ</h1>
 <p class="subtitle">並び替え・複数割合・サブスク年払い（一括）対応版</p>
-<p id="appVersionLabel" style="text-align:center;color:rgba(255,255,255,0.55);font-size:0.72rem;margin-top:-6px;margin-bottom:12px;letter-spacing:0.03em;"></p>
+<p id="appVersionLabel" style="text-align:center;color:rgba(255,255,255,0.55);font-size:0.72rem;margin-top:-6px;margin-bottom:4px;letter-spacing:0.03em;"></p>
+<p id="appDeployLabel" style="text-align:center;color:rgba(255,255,255,0.4);font-size:0.68rem;margin-top:0;margin-bottom:12px;"></p>
+
   <div class="tab-bar" id="tabBar">
     <button class="tab-btn active" id="tabBtn-input"    onclick="switchTab('input')">📋 入力</button>
     <button class="tab-btn"        id="tabBtn-result"   onclick="switchTab('result')">📊 結果</button>
@@ -2902,6 +2904,23 @@ async function init(){
   const vEl = document.getElementById('appVersionLabel');
   if(vEl) vEl.textContent = APP_VERSION;
   console.log('kakei-wariai app version:', APP_VERSION);
+
+  // ★追加：手動で書き換えるAPP_VERSIONだけに頼らず、サーバーが実際に配信している
+  // ファイルの最終更新日時（Last-Modifiedヘッダー）も自動で取得して表示する。
+  // これにより「バージョン番号の書き換えを忘れていないか」を裏付けする保険になる。
+  // cache:'no-store'を指定し、ブラウザ側の古いキャッシュ結果を返さないようにする。
+  const dEl = document.getElementById('appDeployLabel');
+  fetch(location.href, {method:'HEAD', cache:'no-store'})
+    .then(r => {
+      const lm = r.headers.get('last-modified');
+      if(dEl && lm){
+        const d = new Date(lm);
+        const label = `最終デプロイ確認：${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        dEl.textContent = label;
+        console.log('kakei-wariai', label);
+      }
+    })
+    .catch(()=>{}); // file://で直接開いている場合など取得できなければ、何も表示せず静かに終える（エラーにはしない）
 
   const startTabId = localStorage.getItem(DEFAULT_TAB_KEY) || 'input';
 
