@@ -593,6 +593,13 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   </div>
 </div>
 
+    <div class="card">
+      <h2>📝 アプリ更新履歴</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">これまでの機能追加・バグ修正の記録です。新しい修正ほど上に表示されます。</p>
+      <div id="changelogList" style="max-height:300px; overflow-y:auto; padding-right:8px;"></div>
+    </div>
+
+
 <div id="toast"></div>
 
 <div class="modal-overlay hidden" id="modalOverlay">
@@ -620,7 +627,20 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.07.21-4';
+const APP_VERSION = 'v2026.07.21-5';
+
+// ★変更履歴。新しい変更を加えるたびに、この配列の先頭（一番上）に1行追加していく。
+// コード内にコメントとして書き続けるとファイルの見通しが悪くなるため、
+// データとして持たせ、設定タブとコンソールの両方で確認できるようにする。
+// 今後の修正提示では、APP_VERSIONの更新と、このAPP_CHANGELOGへの追記を必ずセットで行う。
+const APP_CHANGELOG = [
+  { v:'v2026.07.21-5', date:'2026-07-21', note:'設定タブに「アプリ更新履歴」パネルを追加。以後の修正はここに必ず記録する' },
+  { v:'v2026.07.21-4', date:'2026-07-21', note:'振込サマリ：夏/冬ボーナス・年一括払い・Nヶ月ごと払いの見出しに「残り合計」を併記' },
+  { v:'v2026.07.21-3', date:'2026-07-21', note:'設定タブに「支払い済みの記録」を取り消せるパネルを新設。2年/3年ごと一括払いの年跨ぎ判定バグを修正、見出しの折り返し崩れを修正' },
+  { v:'v2026.07.21-2', date:'2026-07-21', note:'Nヶ月ごと払いの繰り越し判定を、支払サイクル月だけでなく実際の🗓期限（月＋日）を基準に判定するよう修正' },
+  { v:'v2026.07.21-1', date:'2026-07-21', note:'年一括払い・ボーナス払いの年跨ぎ判定（1〜3月期限は来年扱い）を一般化。振込サマリの期間ブロックを最短期限順に並び替え' },
+];
+
 const FIREBASE_URL = 'https://kakei-wariai-default-rtdb.asia-southeast1.firebasedatabase.app';
 const CURRENT_PATH = 'kakeibo/current';
 const HISTORY_PATH = 'kakeibo/history';
@@ -743,7 +763,7 @@ function switchTab(tabId){
     document.getElementById('tabBtn-'+d.id).classList.toggle('active',d.id===tabId);
   });
   if(tabId==='result'&&lastCalcResult){setTimeout(()=>{if(pieChart)pieChart.resize();if(barChart)barChart.resize();},50);}
-  if(tabId==='settings'){renderOrderSettings();renderMasterLists();renderBillingStartDaySetting();renderSettledItemsPanel();}
+  if(tabId==='settings'){renderOrderSettings();renderMasterLists();renderBillingStartDaySetting();renderSettledItemsPanel();renderChangelog();}
 
   if(tabId==='history'){loadHistoryList();}
   window.scrollTo({top:0,behavior:'smooth'});
@@ -995,6 +1015,24 @@ function renderSettledItemsPanel(){
     ? html
     : '<div class="master-empty">現在、支払い済みとして記録されている年一括・複数年払いの項目はありません</div>';
 }
+
+// ★追加：設定タブに変更履歴を描画する
+function renderChangelog(){
+  const container = document.getElementById('changelogList');
+  if(!container) return;
+  let html = '';
+  APP_CHANGELOG.forEach(log => {
+    html += `<div style="padding:8px 0; border-bottom:1px dashed #e0e0f0;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; gap:8px;">
+        <span class="badge" style="background:#667eea; margin-left:0;">${log.v}</span>
+        <span style="font-size:0.75rem; color:#888; white-space:nowrap;">${log.date}</span>
+      </div>
+      <div style="font-size:0.85rem; color:#444; line-height:1.4;">${log.note}</div>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
 
 function updateBillingStartDay(val){
   masterData.billingStartDay = parseInt(val) || 16;
@@ -3028,6 +3066,11 @@ async function init(){
   const vEl = document.getElementById('appVersionLabel');
   if(vEl) vEl.textContent = APP_VERSION;
   console.log('kakei-wariai app version:', APP_VERSION);
+  // 変更履歴をコンソールにも出力する（折りたたみ表示。クリックで展開できる）
+  console.groupCollapsed('kakei-wariai changelog（クリックで展開）');
+  APP_CHANGELOG.forEach(c => console.log(`${c.v}  ${c.date}  ${c.note}`));
+  console.groupEnd();
+
 
   // ★追加：手動で書き換えるAPP_VERSIONだけに頼らず、サーバーが実際に配信している
   // ファイルの最終更新日時（Last-Modifiedヘッダー）も自動で取得して表示する。
