@@ -620,7 +620,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.07.21-2';
+const APP_VERSION = 'v2026.07.21-3';
 const FIREBASE_URL = 'https://kakei-wariai-default-rtdb.asia-southeast1.firebasedatabase.app';
 const CURRENT_PATH = 'kakeibo/current';
 const HISTORY_PATH = 'kakeibo/history';
@@ -2553,27 +2553,47 @@ function renderPersonPeriodSummary(ppData){
       // 「📅月々」は元々毎月必ず発生する家計そのものなので、この絞り込みの対象外とし、
       // 従来どおり全項目をそのまま合計する（起算日の関係で計算上「来月」判定になる項目が
       // 誤って除外されてしまうのを防ぐため）。
-       const periodTotal = (periodKey === 'monthly')
+       const isPeriodicPeriodBlock = (periodKey === 'periodic');
+      const isYearlyPeriodBlock   = (periodKey === 'bonus_summer' || periodKey === 'bonus_winter' || periodKey === 'yearly_lump');
+
+      // ①今月支払う金額（既存のまま。期限が今月の項目＋期限を過ぎた繰り越し分の合計）
+      const periodTotal = (periodKey === 'monthly')
         ? acctNames.reduce((s,a)=>s+accts[a].total,0)
         : acctNames.reduce((sum, acctName) => {
             return sum + accts[acctName].items.filter(isDueNow).reduce((s, it) => s + it.val, 0);
           }, 0);
 
-      // ★追加：月々以外のブロックは、合計が「明細の全項目の合計」ではなく
-      // 「今月中に実際に振り込むべき金額（＋期限超過の繰り越し分）」であることが
-      // ラベルだけで一目で分かるようにする。月々は元々毎月必ず発生する家計そのものなので
-      // 従来どおり「合計」のままにする。
+      // ②残り合計：このブロックに表示されている項目のうち、person.key（夫/妻）自身が
+      // まだチェックを入れていないものだけの合計。isYearlyPaid・isPeriodicCyclePaidで
+      // 個人単位のチェック記録を直接確認しているため、共同負担（折半・収入比）項目で
+      // 片方だけ支払い済みのケースでも、支払った側の金額は正しく除外される。
+      const remainTotal = (periodKey === 'monthly') ? null : acctNames.reduce((sum, acctName) => {
+        const acctData = accts[acctName];
+        const acctPaidFlag = isPaid(transferPaidKey(acctName, periodKey, person.key));
+        const unpaidItems = acctData.items.filter(it => {
+          if(isPeriodicPeriodBlock && it.itemKey) return !isPeriodicCyclePaid(it.itemKey, it.payYear, it.payMonth, person.key);
+          if(isYearlyPeriodBlock && it.itemKey)    return !isYearlyPaid(it.itemKey, it.payYear, person.key);
+          return !acctPaidFlag;
+        });
+        return sum + unpaidItems.reduce((s, it) => s + it.val, 0);
+      }, 0);
+
       const totalLabel = (periodKey === 'monthly') ? '合計' : '今月支払う金額';
+
+      // 今月支払う金額と残り合計が同額（＝この先まだ他に支払い予定がない）場合は、
+      // 同じ数字を2行に分けて表示する意味がないため、1行だけにまとめる
+      const remainHtml = (remainTotal !== null && remainTotal !== periodTotal)
+        ? `<span style="font-size:0.76rem; opacity:0.85; white-space:nowrap; margin-top:1px;">残り合計：${fmt(remainTotal)}</span>`
+        : '';
 
       html += `<div class="transfer-period-block">
         <div class="transfer-period-title pt-${periodKey}" style="flex-wrap:wrap; gap:4px; align-items:flex-start;">
           <span style="line-height:1.4;">${periodLabel(periodKey)}</span>
-          <span style="font-size:0.9rem; white-space:nowrap; margin-top:2px;">${totalLabel}：${fmt(periodTotal)}</span>
+          <span style="display:flex; flex-direction:column; align-items:flex-end; gap:1px;">
+            <span style="font-size:0.9rem; white-space:nowrap; font-weight:800;">${totalLabel}：${fmt(periodTotal)}</span>
+            ${remainHtml}
+          </span>
         </div>`;
-
-
-
-
 
       const sortedAcctNames = [...acctNames].sort((a,b)=>{
         // 第1優先：支払済みの口座は最後に送る
