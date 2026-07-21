@@ -620,7 +620,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.07.21-3';
+const APP_VERSION = 'v2026.07.21-4';
 const FIREBASE_URL = 'https://kakei-wariai-default-rtdb.asia-southeast1.firebasedatabase.app';
 const CURRENT_PATH = 'kakeibo/current';
 const HISTORY_PATH = 'kakeibo/history';
@@ -2580,9 +2580,10 @@ function renderPersonPeriodSummary(ppData){
 
       const totalLabel = (periodKey === 'monthly') ? '合計' : '今月支払う金額';
 
-      // 今月支払う金額と残り合計が同額（＝この先まだ他に支払い予定がない）場合は、
-      // 同じ数字を2行に分けて表示する意味がないため、1行だけにまとめる
-      const remainHtml = (remainTotal !== null && remainTotal !== periodTotal)
+      // ★修正：今月支払う金額と残り合計が同額であっても、常に2行表示にする。
+      // 「同じ数字が並ぶ＝今月分を払えばこのカテゴリの支払いは完了する」という
+      // 明確な情報が伝わるため、省略せずに常に表示したほうがユーザーの目処が立ちやすい。
+      const remainHtml = (remainTotal !== null)
         ? `<span style="font-size:0.76rem; opacity:0.85; white-space:nowrap; margin-top:1px;">残り合計：${fmt(remainTotal)}</span>`
         : '';
 
