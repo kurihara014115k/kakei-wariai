@@ -550,6 +550,17 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       </select>
     </div>
     <div class="card">
+          <div class="card">
+      <h2>✅ 支払い済みの年一括・複数年払いの記録</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">
+        🌻夏ボーナス・⛄冬ボーナス・📆年一括払い（2年・3年ごとの一括払いを含む）の項目は、「夫済」「妻済」にチェックを入れると、
+        次の支払いサイクルが来るまで結果画面から一切表示されなくなります（2年・3年ごとの項目の場合、次に表示されるのは2〜3年後になります）。
+        誤ってチェックを入れてしまった場合は、ここから取り消してください。<br>
+        <strong style="color:#c62828;">※ 夫婦間で共有されているデータです。両方の端末に影響します。</strong>
+      </p>
+      <div class="master-list" id="settledItemsList"></div>
+    </div>
+
       <h2>⚖️ カスタム負担割合マスタ</h2>
 
     <div class="card">
@@ -609,7 +620,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.07.21-1';
+const APP_VERSION = 'v2026.07.21-2';
 const FIREBASE_URL = 'https://kakei-wariai-default-rtdb.asia-southeast1.firebasedatabase.app';
 const CURRENT_PATH = 'kakeibo/current';
 const HISTORY_PATH = 'kakeibo/history';
@@ -732,7 +743,7 @@ function switchTab(tabId){
     document.getElementById('tabBtn-'+d.id).classList.toggle('active',d.id===tabId);
   });
   if(tabId==='result'&&lastCalcResult){setTimeout(()=>{if(pieChart)pieChart.resize();if(barChart)barChart.resize();},50);}
-  if(tabId==='settings'){renderOrderSettings();renderMasterLists();renderBillingStartDaySetting();}
+  if(tabId==='settings'){renderOrderSettings();renderMasterLists();renderBillingStartDaySetting();renderSettledItemsPanel();}
 
   if(tabId==='history'){loadHistoryList();}
   window.scrollTo({top:0,behavior:'smooth'});
@@ -911,6 +922,78 @@ function renderBillingStartDaySetting(){
   const current = masterData.billingStartDay || 16;
   sel.innerHTML = Array.from({length:31},(_,i)=>i+1)
     .map(d=>`<option value="${d}" ${current===d?'selected':''}>${d}日</option>`).join('');
+}
+
+// 現在フォームに入っている費用項目・サブスク・貯蓄投資の中から、
+// 夫済・妻済チェックが記録されうる年一括・複数年払い系の項目をすべて洗い出す
+function getAllTrackableYearlyItems(){
+  const fd = getFormData();
+  const list = [];
+  (fd.rows||[]).forEach((r,idx)=>{
+    if(r.cycle==='bonus_summer'||r.cycle==='bonus_winter')
+      list.push({itemKey:`exp_${r.cycle}_${idx}`, name:r.name||'（無題）'});
+    else if(r.cycle==='yearly_lump')
+      list.push({itemKey:`exp_yearly_lump_${idx}`, name:r.name||'（無題）'});
+    else if(r.cycle==='multi_year')
+      list.push({itemKey:`exp_my_${idx}`, name:r.name||'（無題）'});
+  });
+  (fd.subs||[]).forEach((s,idx)=>{
+    if(s.cycle==='yearly')
+      list.push({itemKey:`sub_yearly_${idx}`, name:s.name||'（無題）'});
+    else if(s.cycle==='multi_year')
+      list.push({itemKey:`sub_my_${idx}`, name:s.name||'（無題）'});
+  });
+  (fd.savs||[]).forEach((s,idx)=>{
+    if(s.cycle==='bonus_summer'||s.cycle==='bonus_winter')
+      list.push({itemKey:`sav_${s.cycle}_${idx}`, name:s.name||'（無題）'});
+    else if(s.cycle==='yearly_lump')
+      list.push({itemKey:`sav_yearly_lump_${idx}`, name:s.name||'（無題）'});
+    else if(s.cycle==='multi_year')
+      list.push({itemKey:`sav_my_${idx}`, name:s.name||'（無題）'});
+  });
+  return list;
+}
+
+// 指定したitemKeyについて、yearlyLogの中に記録されている「支払い年」をすべて探す
+function findSettledYearsForItem(itemKey){
+  const years = new Set();
+  if(paidData.yearlyLog){
+    Object.keys(paidData.yearlyLog).forEach(k=>{
+      if(k.indexOf(itemKey+'__')===0){
+        const rest = k.slice(itemKey.length+2);
+        const y = rest.split('__')[0];
+        if(y) years.add(y);
+      }
+    });
+  }
+  return Array.from(years).sort();
+}
+
+// 設定タブに「支払い済みの記録」一覧を描画する。既存のtoggleYearlyItemPaid()をそのまま
+// 呼び出すだけで取り消せるため、新しいFirebase書き込みロジックは一切増やしていない
+function renderSettledItemsPanel(){
+  const container = document.getElementById('settledItemsList');
+  if(!container) return;
+  const items = getAllTrackableYearlyItems();
+  let html = '';
+  let any = false;
+  items.forEach(it=>{
+    const years = findSettledYearsForItem(it.itemKey);
+    years.forEach(y=>{
+      const hPaid = isYearlyPaid(it.itemKey, y, 'h');
+      const wPaid = isYearlyPaid(it.itemKey, y, 'w');
+      if(!hPaid && !wPaid) return;
+      any = true;
+      html += `<div class="master-item">
+        <span class="master-item-label" style="flex:1;">${it.name}（${y}年分）</span>
+        ${hPaid?`<button class="btn-warning" style="white-space:nowrap;" onclick="toggleYearlyItemPaid('${it.itemKey}',${y},'h',false);renderSettledItemsPanel();">👨 夫済を取り消す</button>`:''}
+        ${wPaid?`<button class="btn-warning" style="white-space:nowrap;" onclick="toggleYearlyItemPaid('${it.itemKey}',${y},'w',false);renderSettledItemsPanel();">👩 妻済を取り消す</button>`:''}
+      </div>`;
+    });
+  });
+  container.innerHTML = any
+    ? html
+    : '<div class="master-empty">現在、支払い済みとして記録されている年一括・複数年払いの項目はありません</div>';
 }
 
 function updateBillingStartDay(val){
@@ -1955,21 +2038,37 @@ function getMultiYearDisplayInfo(intervalYears, startYear, startMonth, dueMonth,
   const checkH = (hPct > 0), checkW = (hPct < 100);
 
   const sYear = parseInt(startYear) || 0;
-  if(!sYear || currentYear < sYear) return { show:false }; // 起点年が未入力、または未来の年なら何も表示しない
+  if(!sYear || currentYear < sYear) return { show:false };
 
-  const targetMonth = parseInt(dueMonth) || parseInt(startMonth) || 1;
+  const sMonth = parseInt(startMonth) || 1;
+  const targetMonth = parseInt(dueMonth) || sMonth;
 
-  // 起点年から等間隔で並ぶ年のうち、現在年以下で最も直近の「支払う年」
+  // cycleYearの計算式は既存の制約どおり、閉じた式のまま変更しない
   const cycleYear = currentYear - ((currentYear - sYear) % intervalYears);
 
-  // その年の分がすでに両者支払済みなら非表示にする
   if(isYearlySettled(itemKey, cycleYear, checkH, checkW)) return { show:false };
 
-  // 直近の支払い年が今年より前（＝支払いのない「谷の年」を挟んでいる）なら常に繰り越し扱い。
-  // 今年ちょうど支払う年なら、支払月をもう過ぎているかどうかで判定する
-  const isCarryover = (cycleYear < currentYear) || (currentMonth > targetMonth);
+  // ★修正：起点月(sMonth)より期限月(targetMonth)の数字が小さい場合（例：起点12月・期限1月）は、
+  // 実際の期限がサイクル年の「翌年」であることを意味する。汎用の「1〜3月なら来年扱い」ルール
+  // （getYearlyDisplayInfoで使用）は再利用せず、multi_year特有の起点月という明確な基準情報を
+  // 直接比較する専用ロジックを使う。これにより、期限直前・直後の境界ケースでも正確に判定できる。
+  let targetYear = cycleYear;
+  if(targetMonth < sMonth){
+    targetYear += 1;
+  }
+
+  let isCarryover;
+  if(currentYear > targetYear){
+    isCarryover = true;
+  }else if(currentYear === targetYear && currentMonth > targetMonth){
+    isCarryover = true;
+  }else{
+    isCarryover = false;
+  }
+
   return { show:true, isCarryover, payYear:cycleYear, payMonth:targetMonth };
 }
+
 
 // ── ここまで ──────────────────────────────────────
 
@@ -2467,7 +2566,11 @@ function renderPersonPeriodSummary(ppData){
       const totalLabel = (periodKey === 'monthly') ? '合計' : '今月支払う金額';
 
       html += `<div class="transfer-period-block">
-        <div class="transfer-period-title pt-${periodKey}"><span>${periodLabel(periodKey)}</span><span style="font-size:0.9rem;white-space:nowrap;">${totalLabel}：${fmt(periodTotal)}</span></div>`;
+        <div class="transfer-period-title pt-${periodKey}" style="flex-wrap:wrap; gap:4px; align-items:flex-start;">
+          <span style="line-height:1.4;">${periodLabel(periodKey)}</span>
+          <span style="font-size:0.9rem; white-space:nowrap; margin-top:2px;">${totalLabel}：${fmt(periodTotal)}</span>
+        </div>`;
+
 
 
 
