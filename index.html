@@ -629,18 +629,20 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.07.24-2';
+const APP_VERSION = 'v2026.07.24-3';
 
 const APP_CHANGELOG = [
+  { v:'v2026.07.24-3', date:'2026-07-24', note:'結果タブ振込サマリの「入金期限」表記（🗓入金期限：・🗓最短入金期限）が実際には反映されていなかったため、該当ブロックを再確認・確定反映' },
   { v:'v2026.07.24-2', date:'2026-07-24', note:'結果タブ（振込サマリ）の「🗓最短期限」「🗓○月○日まで」の表記を「🗓最短入金期限」「🗓入金期限：」に変更し、入力タブ側の表記（入金期限）と統一' },
   { v:'v2026.07.24-1', date:'2026-07-24', note:'入力タブ（費用項目・サブスク・保険・貯蓄投資）の「🗓期限」ラベルを「🗓入金期限」に変更。設定タブの締め日カードの説明文も表現を統一' },
   { v:'v2026.07.21-6', date:'2026-07-21', note:'「アプリ更新履歴」カードのHTML配置ミスを修正（tab-settingsの外側に置かれてしまい全タブに表示されていた問題を解消し、設定タブ内だけに表示されるよう修正）' },
   { v:'v2026.07.21-5', date:'2026-07-21', note:'設定タブに「アプリ更新履歴」パネルを追加。以後の修正はここに必ず記録する' },
   { v:'v2026.07.21-4', date:'2026-07-21', note:'振込サマリ：夏/冬ボーナス・年一括払い・Nヶ月ごと払いの見出しに「残り合計」を併記' },
   { v:'v2026.07.21-3', date:'2026-07-21', note:'設定タブに「支払い済みの記録」を取り消せるパネルを新設。2年/3年ごと一括払いの年跨ぎ判定バグを修正、見出しの折り返し崩れを修正' },
-  { v:'v2026.07.21-2', date:'2026-07-21', note:'Nヶ月ごと払いの繰り越し判定を、支払サイクル月だけでなく実際の🗓入金期限（月＋日）を基準に判定するよう修正' },
+  { v:'v2026.07.21-2', date:'2026-07-21', note:'Nヶ月ごと払いの繰り越し判定を、支払サイクル月だけでなく実際の入金期限（月＋日）を基準に判定するよう修正' },
   { v:'v2026.07.21-1', date:'2026-07-21', note:'年一括払い・ボーナス払いの年跨ぎ判定（1〜3月期限は来年扱い）を一般化。振込サマリの期間ブロックを最短期限順に並び替え' },
 ];
+
 
 
 
@@ -2709,8 +2711,6 @@ function renderPersonPeriodSummary(ppData){
           const urgent = (!itemPaid && dlabel && score<=3) ? `<span class="badge badge-urgent">⚠️あと${score}日</span>`
             : (!itemPaid && dlabel && score<=7) ? `<span class="badge badge-soon">🔔あと${score}日</span>` : '';
 
-          // ★修正：チェックボックスを「金額の直下・右端」に固定し、金額とセットで1つのブロックにすることで
-          // どの項目に対するチェックかを一目で分かるようにする
           const paidClass = person.key==='h' ? 'paid-h' : 'paid-w';
           let itemCheckHtml = '';
           if(isPeriodicPeriod && it.itemKey){
@@ -2731,7 +2731,7 @@ function renderPersonPeriodSummary(ppData){
               ${it.name}
               <span class="badge badge-cat">${it.category}</span>
               ${carryoverBadge}
-              ${dlabel?`<span style="font-size:0.75rem;color:#e65100;font-weight:700;">🗓${dlabel}</span>`:''}
+              ${dlabel?`<span style="font-size:0.75rem;color:#e65100;font-weight:700;">🗓入金期限：${dlabel}</span>`:''}
               ${urgent}
             </span>
             <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;margin-left:8px;">
@@ -2740,8 +2740,6 @@ function renderPersonPeriodSummary(ppData){
             </span>
           </div>`;
         }).join('');
-
-
 
           // ★修正：並び順が「固定のサイクル順・年度順」になったため、配列の先頭（sortedItems[0]）が
         // 必ずしも「今日から見て一番近い期限」とは限らなくなった。そのため、口座カードの
@@ -2789,15 +2787,14 @@ function renderPersonPeriodSummary(ppData){
           ? acctData.total
           : acctData.items.filter(isDueNow).reduce((s, it) => s + it.val, 0);
 
-        html += `
+                html += `
           <div class="transfer-acct-item ${acctCardClass}">
             <div class="transfer-acct-header">
               <span class="transfer-acct-name" style="display:inline-flex;align-items:center;flex-wrap:wrap;">🏦 ${acctName}${acctInfoBtnHtml}</span>
               <span class="transfer-acct-amount ${person.key==='h'?'husband-amount':'wife-amount'}">${fmt(acctDisplayTotal)}</span>
             </div>
-
             ${acctInfoPanelHtml}
-            ${nearestLabel ? `<div style="font-size:0.8rem;color:#e65100;font-weight:700;margin-bottom:6px;">🗓 最短期限：${nearestLabel} ${acctUrgent}</div>` : ''}
+            ${nearestLabel ? `<div style="font-size:0.8rem;color:#e65100;font-weight:700;margin-bottom:6px;">🗓 最短入金期限：${nearestLabel} ${acctUrgent}</div>` : ''}
             ${acctCheckHtml}
             <button class="detail-toggle" style="margin-top:6px;" onclick="toggleDetail('${detailId}',this)">📋 明細を表示する ▼</button>
             <div id="${detailId}" class="hidden">${itemsRows}</div>
