@@ -539,12 +539,13 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
         <div class="card">
       <h2>📆 家計の締め日（起算日）</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">
-        費用項目・サブスク・保険・貯蓄投資のうち「毎月払い」「年÷12」など日のみで期限を指定する項目について、
-        この起算日を基準にした締めサイクルで期限を判定します。<br>
+        費用項目・サブスク・保険・貯蓄投資のうち「毎月払い」「年÷12」など日のみで入金期限を指定する項目について、
+        この起算日を基準にした締めサイクルで入金期限を判定します。<br>
         例：16に設定すると「16日〜翌15日」が1サイクルになり、16以上の日付は「今月扱い」、
-        16未満の日付は「翌月扱い」になります（10日に設定すると翌月10日として扱われるため、16日より後の期限になります）。<br>
-        月＋日を指定するボーナス・年一括払い・年払いサブスクの期限には影響しません。夫婦間で共有されます。
+        16未満の日付は「翌月扱い」になります（10日に設定すると翌月10日として扱われるため、16日より後の入金期限になります）。<br>
+        月＋日を指定するボーナス・年一括払い・年払いサブスクの入金期限には影響しません。夫婦間で共有されます。
       </p>
+
       <select id="billingStartDaySelect" onchange="updateBillingStartDay(this.value)"
         style="width:100%;padding:10px 14px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.95rem;outline:none;background:white;font-weight:600;color:#555;">
       </select>
@@ -628,16 +629,19 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.07.21-6';
+const APP_VERSION = 'v2026.07.24-2';
 
 const APP_CHANGELOG = [
+  { v:'v2026.07.24-2', date:'2026-07-24', note:'結果タブ（振込サマリ）の「🗓最短期限」「🗓○月○日まで」の表記を「🗓最短入金期限」「🗓入金期限：」に変更し、入力タブ側の表記（入金期限）と統一' },
+  { v:'v2026.07.24-1', date:'2026-07-24', note:'入力タブ（費用項目・サブスク・保険・貯蓄投資）の「🗓期限」ラベルを「🗓入金期限」に変更。設定タブの締め日カードの説明文も表現を統一' },
   { v:'v2026.07.21-6', date:'2026-07-21', note:'「アプリ更新履歴」カードのHTML配置ミスを修正（tab-settingsの外側に置かれてしまい全タブに表示されていた問題を解消し、設定タブ内だけに表示されるよう修正）' },
   { v:'v2026.07.21-5', date:'2026-07-21', note:'設定タブに「アプリ更新履歴」パネルを追加。以後の修正はここに必ず記録する' },
   { v:'v2026.07.21-4', date:'2026-07-21', note:'振込サマリ：夏/冬ボーナス・年一括払い・Nヶ月ごと払いの見出しに「残り合計」を併記' },
   { v:'v2026.07.21-3', date:'2026-07-21', note:'設定タブに「支払い済みの記録」を取り消せるパネルを新設。2年/3年ごと一括払いの年跨ぎ判定バグを修正、見出しの折り返し崩れを修正' },
-  { v:'v2026.07.21-2', date:'2026-07-21', note:'Nヶ月ごと払いの繰り越し判定を、支払サイクル月だけでなく実際の🗓期限（月＋日）を基準に判定するよう修正' },
+  { v:'v2026.07.21-2', date:'2026-07-21', note:'Nヶ月ごと払いの繰り越し判定を、支払サイクル月だけでなく実際の🗓入金期限（月＋日）を基準に判定するよう修正' },
   { v:'v2026.07.21-1', date:'2026-07-21', note:'年一括払い・ボーナス払いの年跨ぎ判定（1〜3月期限は来年扱い）を一般化。振込サマリの期間ブロックを最短期限順に並び替え' },
 ];
+
 
 
 const FIREBASE_URL = 'https://kakei-wariai-default-rtdb.asia-southeast1.firebasedatabase.app';
@@ -1809,14 +1813,14 @@ function buildDueDateInput(isDayOnly, dueDay, dueMonth){
     .map(d=>`<option value="${d}" ${String(dueDay)===String(d)?'selected':''}>${d}日</option>`).join('');
   if(isDayOnly){
     return `<div class="due-date-wrap-inner">
-      <span>🗓期限</span>
+      <span>🗓入金期限</span>
       <select class="due-day"><option value="">未設定</option>${dayOpts}</select>
     </div>`;
   }
   const monthOpts = Array.from({length:12},(_,i)=>i+1)
     .map(m=>`<option value="${m}" ${String(dueMonth)===String(m)?'selected':''}>${m}月</option>`).join('');
   return `<div class="due-date-wrap-inner">
-    <span>🗓期限</span>
+    <span>🗓入金期限</span>
     <select class="due-month"><option value="">未設定</option>${monthOpts}</select>
     <select class="due-day"><option value="">未設定</option>${dayOpts}</select>
   </div>`;
