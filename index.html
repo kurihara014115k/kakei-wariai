@@ -327,13 +327,16 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   .card,.result-section-card,.compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
   .btn-row,.btn-add,.btn-add-sub,.btn-add-ins,.btn-calc,.btn-danger-outline,.save-status,.btn-back,.detail-toggle,.row-controls,.acct-check-wrap,.item-paid-cell { display:none !important; }
 
-  /* ★年間支払い計画専用の印刷モード。printAnnualPlan()がbodyに付与する
-     'print-annual-plan-only'クラスがあるときだけ、上のブロックの指定を上書きし、
-     tab-resultを隠してtab-annualだけを表示する */
-  body.print-annual-plan-only #tab-result { display:none !important; }
-  body.print-annual-plan-only #tab-annual { display:block !important; }
-  body.print-annual-plan-only #annualPlanBody > div { break-inside:avoid; }
+  /* ★年間計画専用のPDF出力モード。
+     これまでのように個々のタブ要素を1つずつ上書きするのではなく、
+     アプリのUI全体（.container）をまるごと隠し、bodyの直下に用意した
+     専用の帳票（#printArea）だけを表示する。これにより、他にどんな
+     display指定が残っていても、確実に年間計画だけが印刷されるようにする。 */
+  body.print-annual-mode .container { display:none !important; }
+  body.print-annual-mode #printArea { display:block !important; }
+  #toast { display:none !important; } /* 印刷時にトーストが偶然表示されていても隠す */
 }
+
 
 
 @media (max-width:640px) {
@@ -662,9 +665,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.12-5';
+const APP_VERSION = 'v2026.09.12-6';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.12-6', date:'2026-09.12', note:'年間計画のPDF印刷を全面改修。個々のタブ要素をCSSで上書きする方式（結果タブが混ざって印刷される不具合の原因）を廃止し、印刷時はアプリ全体（.container）を一括で隠して専用の帳票（#printArea）だけを表示する方式に変更。あわせて、画面のカードUIをそのまま印刷するのではなく、年月ごとに項目をまとめ月次小計付きの一覧表（元帳形式）を自動生成するよう変更し、見やすく整形されたPDFを出力できるようにした' },
   { v:'v2026.09.12-5', date:'2026-09-12', note:'「📅年間支払い計画」を結果タブ内のセクションから独立した「📅年間計画」タブに分離（入力→結果→年間計画→履歴→設定の順）。RES_DEFSと結果タブ内の旧カードを削除、起動時デフォルトタブのプルダウンにも追加。表示制御を既存のnoResultMsg/resultAreaWrapperと同じ構造に統一し、印刷CSSをタブ単位の表示切替に簡素化' },
   { v:'v2026.09-12-4', date:'2026-09-12', note:'年間支払い計画の対象期間を暦年（1〜12月）から年度（4月〜翌年3月）に変更。各月スロットに実際の暦年を明示。年間計画専用のPDF印刷ボタンを新設（年間計画セクションのみを印刷するモードを実装、既存の全体印刷ボタンには影響なし）' },
   { v:'v2026.09-12-3', date:'2026-09-12', note:'結果タブに「📅年間支払い計画」を新設。ボーナス・年一括・2/3年ごと・Nヶ月ごとの支払いを1〜12月の月別に集計し夫婦別金額で表示。2/3年ごとの項目は今年が谷の年なら非表示、Nヶ月ごとの項目は年間の全発生月を正しく列挙' },
@@ -2021,17 +2025,104 @@ function renderAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
 }
 
 
-// ★年間支払い計画専用のPDF印刷関数。年間計画セクションだけを印刷対象にする。
+// ★年間支払い計画専用のPDF印刷関数（元帳形式レイアウト版）。
+// 画面のカードUIをそのまま印刷するのではなく、印刷・PDF化に特化した
+// 「年月ごとにまとめた一覧表＋月次小計」を裏側で動的に組み立て、
+// bodyの直下に追加した#printAreaに流し込んでから印刷する。
 function printAnnualPlan(){
   if(!lastCalcResult){ showToast('先に計算を実行してください'); return; }
+
+  const { slots, fiscalStartYear } = buildAnnualPlan(
+    lastCalcResult.hRatio, lastCalcResult.hSummerRatio, lastCalcResult.hWinterRatio
+  );
+  const hasAny = slots.some(s=>s.items.length>0);
+  if(!hasAny){ showToast('印刷できる年間計画のデータがありません'); return; }
+
+  const now = new Date();
+  const currentMonth = now.getMonth()+1;
+  const currentYear  = now.getFullYear();
+  const printDate = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+
+  let grandH=0, grandW=0;
+  slots.forEach(s=>{ grandH+=s.hTotal; grandW+=s.wTotal; });
+
+  // 年月ごとにグループ化した行＋月次小計行を組み立てる
+  let rowsHtml = '';
+  slots.forEach(s=>{
+    if(s.items.length===0) return;
+    const isCurrent = (s.year===currentYear && s.month===currentMonth);
+    const monthBg = isCurrent ? 'background:#eef1ff;' : '';
+    s.items.forEach((it, idx)=>{
+      rowsHtml += `<tr style="${monthBg}page-break-inside:avoid;break-inside:avoid;">`;
+      if(idx===0){
+        // 年月のセルをその月の項目数だけ縦に結合する（rowspan）
+        rowsHtml += `<td rowspan="${s.items.length}" style="border:1px solid #999;padding:8px;text-align:center;font-weight:800;vertical-align:middle;white-space:nowrap;">${s.label}${isCurrent?'<br><span style="font-size:8pt;color:#667eea;">★今月</span>':''}</td>`;
+      }
+      rowsHtml += `
+        <td style="border:1px solid #999;padding:7px 8px;">${it.name}</td>
+        <td style="border:1px solid #999;padding:7px 8px;text-align:center;font-size:9pt;color:#555;">${it.cycleLabel}</td>
+        <td style="border:1px solid #999;padding:7px 8px;text-align:right;font-weight:700;">${fmt(it.amount)}</td>
+        <td style="border:1px solid #999;padding:7px 8px;text-align:right;color:#3949ab;">${fmt(it.hVal)}</td>
+        <td style="border:1px solid #999;padding:7px 8px;text-align:right;color:#c2185b;">${fmt(it.wVal)}</td>
+      </tr>`;
+    });
+    // 月次小計行：年月・項目名・サイクルの3列分をcolspanでまとめ、金額3列と合わせて6列に揃える
+    rowsHtml += `<tr style="page-break-inside:avoid;break-inside:avoid;background:#f2f2f7;font-weight:800;">
+      <td colspan="3" style="border:1px solid #999;padding:7px 8px;text-align:right;">${s.label} 小計</td>
+      <td style="border:1px solid #999;padding:7px 8px;text-align:right;">${fmt(s.hTotal+s.wTotal)}</td>
+      <td style="border:1px solid #999;padding:7px 8px;text-align:right;color:#3949ab;">${fmt(s.hTotal)}</td>
+      <td style="border:1px solid #999;padding:7px 8px;text-align:right;color:#c2185b;">${fmt(s.wTotal)}</td>
+    </tr>`;
+  });
+
+  const printHtml = `
+    <div style="font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#222;padding:6mm;">
+      <div style="border-bottom:3px solid #667eea;padding-bottom:10px;margin-bottom:14px;">
+        <h1 style="font-size:16pt;font-weight:800;color:#4a4a8a;margin-bottom:4px;">📅 ${fiscalStartYear}年度 年間支払い計画（毎月払い以外）</h1>
+        <div style="font-size:9pt;color:#777;">対象期間：${fiscalStartYear}年4月〜${fiscalStartYear+1}年3月　／　出力日：${printDate}　／　${APP_VERSION}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8ff;border:1px solid #d8d8f0;border-left:5px solid #667eea;border-radius:6px;padding:10px 16px;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <span style="font-size:10pt;color:#555;">年間予定合計（毎月払い以外）</span>
+        <span style="font-size:14pt;font-weight:800;color:#4a4a8a;">${fmt(grandH+grandW)}
+          <span style="font-size:9pt;font-weight:700;"> （<span style="color:#3949ab;">夫 ${fmt(grandH)}</span> / <span style="color:#c2185b;">妻 ${fmt(grandW)}</span>）</span>
+        </span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
+        <thead>
+          <tr style="background:#4a4a8a;color:white;">
+            <th style="border:1px solid #999;padding:8px;width:12%;">年月</th>
+            <th style="border:1px solid #999;padding:8px;width:32%;">項目名</th>
+            <th style="border:1px solid #999;padding:8px;width:14%;">サイクル</th>
+            <th style="border:1px solid #999;padding:8px;width:14%;">金額</th>
+            <th style="border:1px solid #999;padding:8px;width:14%;">夫の負担</th>
+            <th style="border:1px solid #999;padding:8px;width:14%;">妻の負担</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div style="margin-top:14px;font-size:7.5pt;color:#aaa;border-top:1px solid #eee;padding-top:6px;">
+        ※ 毎月払いの費用・保険・サブスク（月額）は含まれていません。「夫婦家計割合計算アプリ」より出力。
+      </div>
+    </div>`;
+
+  // 印刷専用エリアをbodyの直下に用意し、内容を流し込む（通常表示では非表示のまま）
+  let printArea = document.getElementById('printArea');
+  if(!printArea){
+    printArea = document.createElement('div');
+    printArea.id = 'printArea';
+    printArea.style.display = 'none';
+    document.body.appendChild(printArea);
+  }
+  printArea.innerHTML = printHtml;
+
   showToast('印刷ダイアログが開きます。「PDFに保存」を選択してください。');
-  document.body.classList.add('print-annual-plan-only');
+  document.body.classList.add('print-annual-mode');
   setTimeout(()=>{
     window.print();
-    // 印刷ダイアログが閉じた後（またはキャンセルされた後）にクラスを取り除く
-    setTimeout(()=>document.body.classList.remove('print-annual-plan-only'), 1000);
-  }, 500);
+    setTimeout(()=>document.body.classList.remove('print-annual-mode'), 1000);
+  }, 300);
 }
+
 
 
 // ── 振込期限ヘルパー関数（ここから） ──────────────────────────
