@@ -326,7 +326,28 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   #tab-result { display:block !important; }
   .card,.result-section-card,.compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
   .btn-row,.btn-add,.btn-add-sub,.btn-add-ins,.btn-calc,.btn-danger-outline,.save-status,.btn-back,.detail-toggle,.row-controls,.acct-check-wrap,.item-paid-cell { display:none !important; }
+
+  /* ★追加：年間支払い計画専用の印刷モード。
+     printAnnualPlan()がbodyに'print-annual-plan-only'クラスを付与したときだけ適用される。
+     年間計画セクション以外をすべて非表示にし、年間計画だけを1枚にまとめて印刷する。 */
+  body.print-annual-plan-only #res-charts,
+  body.print-annual-plan-only #res-summary,
+  body.print-annual-plan-only #res-monthly,
+  body.print-annual-plan-only #res-sub,
+  body.print-annual-plan-only #res-ins,
+  body.print-annual-plan-only #res-sav,
+  body.print-annual-plan-only #res-periodic,
+  body.print-annual-plan-only #res-acct,
+  body.print-annual-plan-only #res-bonus,
+  body.print-annual-plan-only #noResultMsg,
+  body.print-annual-plan-only .btn-back,
+  body.print-annual-plan-only .compare-card { display:none !important; }
+  body.print-annual-plan-only #res-annual-plan { display:block !important; }
+  body.print-annual-plan-only #annualPlanBody > div {
+    break-inside:avoid; /* 月ごとのカードをページをまたいで分割しない */
+  }
 }
+
 @media (max-width:640px) {
   .income-grid,.summary-grid,.compare-grid,.tri-grid,.acct-breakdown,.history-summary { grid-template-columns:1fr; }
   .exp-cycle,.exp-mode,.sub-cycle,.sub-payer,.ins-payer-sel,.account-sel,.sub-account-sel,.ins-account-sel,.ins-type-sel,.ins-company-sel { min-width:100%; }
@@ -480,6 +501,21 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
           <div id="transferSummaryBody"></div>
         </div>
 
+       <div class="result-section-card hidden" id="res-annual-plan">
+  <h2>📅 年間支払い計画（毎月払い以外）</h2>
+  <p style="font-size:0.82rem;color:#666;margin-bottom:10px;">
+    🌻夏ボーナス・⛄冬ボーナス・📆年一括払い（2年/3年ごとの一括払いを含む）・🔁Nヶ月ごとの一括払いが、
+    今年度（4月〜翌年3月）のうちどの月に発生するかを一覧にしています。
+  </p>
+  <div class="btn-row" style="margin-bottom:14px;">
+    <button class="btn-pdf" onclick="printAnnualPlan()">🖨️ 年間支払い計画をPDFとして保存・印刷する</button>
+  </div>
+  <div id="annualPlanSummary" style="background:#f8f8ff;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.9rem;font-weight:700;color:#4a4a8a;line-height:1.8;"></div>
+  <div id="annualPlanBody"></div>
+</div>
+
+
+
         <div class="card" id="res-bonus">
           <div id="bonusSummerSection" class="hidden"><h3 style="font-size:0.95rem;color:#e65100;margin-bottom:8px;">🌻 夏のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusSummerBody"></tbody><tfoot><tr class="total-row"><td>夏合計</td><td id="bonusSummerTotal"></td><td id="bonusSummerH" class="husband-amount"></td><td id="bonusSummerW" class="wife-amount"></td></tr></tfoot></table></div></div>
           <div id="bonusWinterSection" class="hidden"><h3 style="font-size:0.95rem;color:#1565c0;margin-bottom:8px;">⛄ 冬のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusWinterBody"></tbody><tfoot><tr class="total-row"><td>冬合計</td><td id="bonusWinterTotal"></td><td id="bonusWinterH" class="husband-amount"></td><td id="bonusWinterW" class="wife-amount"></td></tr></tfoot></table></div></div>
@@ -629,9 +665,13 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.07.24-3';
+const APP_VERSION = 'v2026.09.12-4';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09-12-4', date:'2026-09-12', note:'年間支払い計画の対象期間を暦年（1〜12月）から年度（4月〜翌年3月）に変更。各月スロットに実際の暦年を明示。年間計画専用のPDF印刷ボタンを新設（年間計画セクションのみを印刷するモードを実装、既存の全体印刷ボタンには影響なし）' },
+  { v:'v2026.09-12-3', date:'2026-09-12', note:'結果タブに「📅年間支払い計画」を新設。ボーナス・年一括・2/3年ごと・Nヶ月ごとの支払いを1〜12月の月別に集計し夫婦別金額で表示。2/3年ごとの項目は今年が谷の年なら非表示、Nヶ月ごとの項目は年間の全発生月を正しく列挙' },
+  { v:'v2026.09-12-2', date:'2026-09-12', note:'結果タブ振込サマリの「入金期限」表記が反映されていなかったため再確認・確定反映' },
+  { v:'v2026.09.12-1', date:'2026-09-12', note:'結果タブ（振込サマリ）の「🗓最短期限」等の表記を「🗓最短入金期限」「🗓入金期限：」に変更し、入力タブ側と統一' },
   { v:'v2026.07.24-3', date:'2026-07-24', note:'結果タブ振込サマリの「入金期限」表記（🗓入金期限：・🗓最短入金期限）が実際には反映されていなかったため、該当ブロックを再確認・確定反映' },
   { v:'v2026.07.24-2', date:'2026-07-24', note:'結果タブ（振込サマリ）の「🗓最短期限」「🗓○月○日まで」の表記を「🗓最短入金期限」「🗓入金期限：」に変更し、入力タブ側の表記（入金期限）と統一' },
   { v:'v2026.07.24-1', date:'2026-07-24', note:'入力タブ（費用項目・サブスク・保険・貯蓄投資）の「🗓期限」ラベルを「🗓入金期限」に変更。設定タブの締め日カードの説明文も表現を統一' },
@@ -723,8 +763,10 @@ const RES_DEFS=[
   {id:'res-sav',    label:'💰 貯蓄・投資集計'},
   {id:'res-periodic',label:'🔁 Nヶ月ごとの一括払い'},
   {id:'res-acct',   label:'💸 夫婦別・振込サマリ'},
+  {id:'res-annual-plan', label:'📅 年間支払い計画'},
   {id:'res-bonus',  label:'🌻⛄📆 ボーナス・年一括払い'},
 ];
+
 let tabOrder=TAB_DEFS.map(d=>d.id);
 let inpOrder=INP_DEFS.map(d=>d.id);
 let resOrder=RES_DEFS.map(d=>d.id);
@@ -1807,6 +1849,171 @@ function calcSavs(hRatio,savsData,hSummerRatio=hRatio,hWinterRatio=hRatio){
   return{mTotal,mH,mW,mTotalAll,mHAll,mWAll,sTotal,sH,sW,wnTotal,wnH,wnW,yTotal,yH,yW,monthlyItems,summerItems,winterItems,lumpItems};
 }
 
+// ★年間支払い計画（年度版）：対象期間は「年度（4月〜翌年3月）」。
+// 今日の月が4月以降なら「今年の4月〜翌年3月」、3月以前なら「前年の4月〜今年3月」を対象とする。
+function buildAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
+  const fd = getFormData();
+  const now = new Date();
+  const today = now.getMonth()+1;
+  const thisYear = now.getFullYear();
+
+  // 年度の起点年を決める（4月以降なら今年、3月以前なら前年）
+  const fiscalStartYear = (today >= 4) ? thisYear : thisYear - 1;
+
+  // 4月〜翌年3月の12ヶ月分のスロットを、実際の暦年とセットで作る
+  const slots = [];
+  for(let i=0; i<12; i++){
+    const month = ((3 + i) % 12) + 1; // 4,5,...,12,1,2,3
+    const year  = (month >= 4) ? fiscalStartYear : fiscalStartYear + 1;
+    slots.push({ month, year, label:`${year}年${month}月`, items:[], hTotal:0, wTotal:0 });
+  }
+
+  function push(month, year, name, amount, hPct, cycleLabel){
+    const slot = slots.find(s => s.month===month && s.year===year);
+    if(!slot) return; // 今年度の範囲外なら何もしない
+    const hVal = amount*hPct/100, wVal = amount*(100-hPct)/100;
+    slot.items.push({ name: name||'（無題）', amount, hVal, wVal, cycleLabel });
+    slot.hTotal += hVal; slot.wTotal += wVal;
+  }
+
+  // Nヶ月ごとの支払い：年度内の全発生月を洗い出す（既存のgetPeriodicCycleInfoと同じ剰余演算）
+  function pushPeriodic(interval, startMonth, name, amount, hPct, label){
+    slots.forEach(s=>{
+      const diff = (s.month - startMonth + 12) % 12;
+      if(diff % interval === 0) push(s.month, s.year, name, amount, hPct, label);
+    });
+  }
+
+  // 2年/3年ごとの一括払い：既存のgetMultiYearDisplayInfoと同じ閉じた式で、
+  // 各スロットの年を基準にcycleYearを計算し、今年度に実際に発生するかどうかを判定する
+  function pushMultiYear(intervalYears, startYear, startMonth, dueMonth, name, amount, hPct){
+    const sYear = parseInt(startYear)||0;
+    if(!sYear) return;
+    const sMonth = parseInt(startMonth)||1;
+    const targetMonth = parseInt(dueMonth) || sMonth;
+    slots.forEach(s=>{
+      const cycleYear = s.year - ((s.year - sYear) % intervalYears);
+      const targetYear = (targetMonth < sMonth) ? cycleYear+1 : cycleYear;
+      if(s.month === targetMonth && s.year === targetYear){
+        push(s.month, s.year, name, amount, hPct, `📆${intervalYears}年ごと`);
+      }
+    });
+  }
+
+  // 月＋日を指定する年一括系（ボーナス・年一括払い）を、正しい年に振り分けるヘルパー
+  function pushYearlyLike(dueMonth, defaultMonth, name, amount, hPct, label){
+    const m = parseInt(dueMonth) || defaultMonth;
+    const y = (m >= 4) ? fiscalStartYear : fiscalStartYear + 1;
+    push(m, y, name, amount, hPct, label);
+  }
+
+  // 費用項目
+  (fd.rows||[]).forEach(r=>{
+    const amount = parseFloat(r.amount)||0; if(amount<=0) return;
+    const hPct = resolveHPct(r.mode, hRatio, hSummerRatio, hWinterRatio, r.hPct);
+    if(r.cycle==='bonus_summer') pushYearlyLike(r.dueMonth, 7, r.name, amount, hPct, '🌻夏ボーナス');
+    else if(r.cycle==='bonus_winter') pushYearlyLike(r.dueMonth, 12, r.name, amount, hPct, '⛄冬ボーナス');
+    else if(r.cycle==='yearly_lump') pushYearlyLike(r.dueMonth, 1, r.name, amount, hPct, '📆年一括');
+    else if(r.cycle==='multi_year') pushMultiYear(parseInt(r.myInterval)||2, r.myStartYear, r.myStartMonth, r.dueMonth, r.name, amount, hPct);
+    else if(r.cycle==='periodic') pushPeriodic(parseInt(r.interval)||3, parseInt(r.startMonth)||1, r.name, amount, hPct, `🔁${r.interval||3}ヶ月ごと`);
+  });
+
+  // サブスク
+  (fd.subs||[]).forEach(s=>{
+    const amount = parseFloat(s.amount)||0; if(amount<=0) return;
+    const hPct = resolveHPct(s.payer, hRatio, hSummerRatio, hWinterRatio, 50);
+    if(s.cycle==='yearly') pushYearlyLike(s.dueMonth, 1, s.name, amount, hPct, '📱サブスク(年)');
+    else if(s.cycle==='multi_year') pushMultiYear(parseInt(s.myInterval)||2, s.myStartYear, s.myStartMonth, s.dueMonth, s.name, amount, hPct);
+    else if(s.cycle==='periodic') pushPeriodic(parseInt(s.interval)||3, parseInt(s.startMonth)||1, s.name, amount, hPct, `📱サブスク(${s.interval||3}ヶ月ごと)`);
+  });
+
+  // 貯蓄・投資
+  (fd.savs||[]).forEach(s=>{
+    const amount = parseFloat(s.amount)||0; if(amount<=0) return;
+    const hPct = resolveHPct(s.payer, hRatio, hSummerRatio, hWinterRatio, 50);
+    if(s.cycle==='bonus_summer') pushYearlyLike(s.dueMonth, 7, s.name, amount, hPct, '💰貯蓄(夏ボーナス)');
+    else if(s.cycle==='bonus_winter') pushYearlyLike(s.dueMonth, 12, s.name, amount, hPct, '💰貯蓄(冬ボーナス)');
+    else if(s.cycle==='yearly_lump') pushYearlyLike(s.dueMonth, 1, s.name, amount, hPct, '💰貯蓄(年一括)');
+    else if(s.cycle==='multi_year') pushMultiYear(parseInt(s.myInterval)||2, s.myStartYear, s.myStartMonth, s.dueMonth, s.name, amount, hPct);
+  });
+
+  return { slots, fiscalStartYear };
+}
+
+// ★年間支払い計画を描画する（年度版）
+function renderAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
+  const sec = document.getElementById('res-annual-plan');
+  const body = document.getElementById('annualPlanBody');
+  const summaryEl = document.getElementById('annualPlanSummary');
+  if(!sec || !body) return;
+
+  const { slots, fiscalStartYear } = buildAnnualPlan(hRatio, hSummerRatio, hWinterRatio);
+  const hasAny = slots.some(s=>s.items.length>0);
+  if(!hasAny){ sec.classList.add('hidden'); return; }
+  sec.classList.remove('hidden');
+
+  let grandH=0, grandW=0;
+  slots.forEach(s=>{ grandH+=s.hTotal; grandW+=s.wTotal; });
+  if(summaryEl){
+    summaryEl.innerHTML =
+      `📌 ${fiscalStartYear}年度（${fiscalStartYear}年4月〜${fiscalStartYear+1}年3月）の年間予定合計：${fmt(grandH+grandW)}<br>` +
+      `<span class="husband-amount">夫 ${fmt(grandH)}</span> / <span class="wife-amount">妻 ${fmt(grandW)}</span>`;
+  }
+
+  const now = new Date();
+  const currentMonth = now.getMonth()+1;
+  const currentYear  = now.getFullYear();
+
+  let html='';
+  slots.forEach(s=>{
+    if(s.items.length===0) return;
+    const isPast    = (s.year < currentYear) || (s.year===currentYear && s.month < currentMonth);
+    const isCurrent = (s.year===currentYear && s.month===currentMonth);
+    const headerStyle = isCurrent
+      ? 'background:linear-gradient(135deg,#667eea,#764ba2);color:white;'
+      : isPast
+        ? 'background:#f0f0f0;color:#999;'
+        : 'background:linear-gradient(135deg,#f8f8ff,#f0f0ff);color:#4a4a8a;';
+    const nowBadge = isCurrent
+      ? `<span class="badge" style="background:#ff5252;margin-left:6px;">今月</span>` : '';
+
+    html += `<div style="margin-bottom:14px;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <div style="${headerStyle}padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+        <span style="font-weight:800;">${s.label}${nowBadge}</span>
+        <span style="font-size:0.85rem;font-weight:700;">合計 ${fmt(s.hTotal+s.wTotal)}
+          <span style="font-size:0.72rem;opacity:0.85;">（夫${fmt(s.hTotal)}/妻${fmt(s.wTotal)}）</span>
+        </span>
+      </div>
+      <div style="background:white;padding:2px 14px;">`;
+    s.items.forEach((it,idx)=>{
+      const borderTop = idx>0 ? 'border-top:1px solid #f5f5f8;' : '';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;${borderTop}flex-wrap:wrap;gap:4px;">
+        <span style="flex:1;min-width:0;font-size:0.87rem;color:#333;">${it.name}<span class="badge badge-cat" style="font-size:0.6rem;margin-left:4px;">${it.cycleLabel}</span></span>
+        <span style="text-align:right;flex-shrink:0;">
+          <span style="font-weight:800;">${fmt(it.amount)}</span><br>
+          <span style="font-size:0.72rem;"><span class="husband-amount">夫${fmt(it.hVal)}</span> / <span class="wife-amount">妻${fmt(it.wVal)}</span></span>
+        </span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  body.innerHTML = html;
+}
+
+// ★年間支払い計画専用のPDF印刷関数。年間計画セクションだけを印刷対象にする。
+function printAnnualPlan(){
+  if(!lastCalcResult){ showToast('先に計算を実行してください'); return; }
+  showToast('印刷ダイアログが開きます。「PDFに保存」を選択してください。');
+  document.body.classList.add('print-annual-plan-only');
+  setTimeout(()=>{
+    window.print();
+    // 印刷ダイアログが閉じた後（またはキャンセルされた後）にクラスを取り除く
+    setTimeout(()=>document.body.classList.remove('print-annual-plan-only'), 1000);
+  }, 500);
+}
+
+
 // ── 振込期限ヘルパー関数（ここから） ──────────────────────────
 
 // 期限入力欄のHTMLを作る。isDayOnly が true なら「日」だけ、false なら「月＋日」のプルダウンにする
@@ -2397,6 +2604,8 @@ function calculate(autoSwitch=true){
 
   const personAccts = calcPersonPeriodAccounts(res, subs, ins, savs);
   renderPersonPeriodSummary(personAccts);
+  renderAnnualPlan(res.hRatio, res.hSummerRatio, res.hWinterRatio); // ★追加：年間支払い計画
+
 
 const summerTotalAll = res.sTotal + savs.sTotal;
 const summerHAll     = res.sH + savs.sH;
