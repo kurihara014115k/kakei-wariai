@@ -322,31 +322,19 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 @media print {
   body { background:white !important; }
   .tab-bar { display:none !important; }
-  #tab-input,#tab-history,#tab-settings { display:none !important; }
+  #tab-input,#tab-history,#tab-settings,#tab-annual { display:none !important; }
   #tab-result { display:block !important; }
   .card,.result-section-card,.compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
   .btn-row,.btn-add,.btn-add-sub,.btn-add-ins,.btn-calc,.btn-danger-outline,.save-status,.btn-back,.detail-toggle,.row-controls,.acct-check-wrap,.item-paid-cell { display:none !important; }
 
-  /* ★追加：年間支払い計画専用の印刷モード。
-     printAnnualPlan()がbodyに'print-annual-plan-only'クラスを付与したときだけ適用される。
-     年間計画セクション以外をすべて非表示にし、年間計画だけを1枚にまとめて印刷する。 */
-  body.print-annual-plan-only #res-charts,
-  body.print-annual-plan-only #res-summary,
-  body.print-annual-plan-only #res-monthly,
-  body.print-annual-plan-only #res-sub,
-  body.print-annual-plan-only #res-ins,
-  body.print-annual-plan-only #res-sav,
-  body.print-annual-plan-only #res-periodic,
-  body.print-annual-plan-only #res-acct,
-  body.print-annual-plan-only #res-bonus,
-  body.print-annual-plan-only #noResultMsg,
-  body.print-annual-plan-only .btn-back,
-  body.print-annual-plan-only .compare-card { display:none !important; }
-  body.print-annual-plan-only #res-annual-plan { display:block !important; }
-  body.print-annual-plan-only #annualPlanBody > div {
-    break-inside:avoid; /* 月ごとのカードをページをまたいで分割しない */
-  }
+  /* ★年間支払い計画専用の印刷モード。printAnnualPlan()がbodyに付与する
+     'print-annual-plan-only'クラスがあるときだけ、上のブロックの指定を上書きし、
+     tab-resultを隠してtab-annualだけを表示する */
+  body.print-annual-plan-only #tab-result { display:none !important; }
+  body.print-annual-plan-only #tab-annual { display:block !important; }
+  body.print-annual-plan-only #annualPlanBody > div { break-inside:avoid; }
 }
+
 
 @media (max-width:640px) {
   .income-grid,.summary-grid,.compare-grid,.tri-grid,.acct-breakdown,.history-summary { grid-template-columns:1fr; }
@@ -365,9 +353,11 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   <div class="tab-bar" id="tabBar">
     <button class="tab-btn active" id="tabBtn-input"    onclick="switchTab('input')">📋 入力</button>
     <button class="tab-btn"        id="tabBtn-result"   onclick="switchTab('result')">📊 結果</button>
+    <button class="tab-btn"        id="tabBtn-annual"   onclick="switchTab('annual')">📅 年間計画</button>
     <button class="tab-btn"        id="tabBtn-history"  onclick="switchTab('history')">📅 履歴</button>
     <button class="tab-btn"        id="tabBtn-settings" onclick="switchTab('settings')">⚙️ 設定</button>
   </div>
+
 
   <div class="tab-content active" id="tab-input">
     <div class="carryover-notice">✅ 前回の入力内容が引き継がれています。各カードの並び順は「⚙️ 設定」タブから変更できます。</div>
@@ -501,21 +491,6 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
           <div id="transferSummaryBody"></div>
         </div>
 
-       <div class="result-section-card hidden" id="res-annual-plan">
-  <h2>📅 年間支払い計画（毎月払い以外）</h2>
-  <p style="font-size:0.82rem;color:#666;margin-bottom:10px;">
-    🌻夏ボーナス・⛄冬ボーナス・📆年一括払い（2年/3年ごとの一括払いを含む）・🔁Nヶ月ごとの一括払いが、
-    今年度（4月〜翌年3月）のうちどの月に発生するかを一覧にしています。
-  </p>
-  <div class="btn-row" style="margin-bottom:14px;">
-    <button class="btn-pdf" onclick="printAnnualPlan()">🖨️ 年間支払い計画をPDFとして保存・印刷する</button>
-  </div>
-  <div id="annualPlanSummary" style="background:#f8f8ff;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.9rem;font-weight:700;color:#4a4a8a;line-height:1.8;"></div>
-  <div id="annualPlanBody"></div>
-</div>
-
-
-
         <div class="card" id="res-bonus">
           <div id="bonusSummerSection" class="hidden"><h3 style="font-size:0.95rem;color:#e65100;margin-bottom:8px;">🌻 夏のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusSummerBody"></tbody><tfoot><tr class="total-row"><td>夏合計</td><td id="bonusSummerTotal"></td><td id="bonusSummerH" class="husband-amount"></td><td id="bonusSummerW" class="wife-amount"></td></tr></tfoot></table></div></div>
           <div id="bonusWinterSection" class="hidden"><h3 style="font-size:0.95rem;color:#1565c0;margin-bottom:8px;">⛄ 冬のボーナス払い</h3><div style="overflow-x:auto;margin-bottom:24px;"><table class="result-table"><thead><tr><th>費用項目</th><th>金額</th><th>夫の負担</th><th>妻の負担</th></tr></thead><tbody id="bonusWinterBody"></tbody><tfoot><tr class="total-row"><td>冬合計</td><td id="bonusWinterTotal"></td><td id="bonusWinterH" class="husband-amount"></td><td id="bonusWinterW" class="wife-amount"></td></tr></tfoot></table></div></div>
@@ -525,6 +500,26 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       </div>
     </div>
   </div>
+
+  <div class="tab-content" id="tab-annual">
+    <div id="noAnnualMsg" class="no-result-msg"><div class="icon">📅</div><div>まだ計算されていません。<br>「📋 入力」タブで「⚡ 計算する」を押してください。</div></div>
+    <div id="annualPlanWrapper" class="hidden">
+      <button class="btn-back" onclick="switchTab('input')">✏️ 入力に戻る</button>
+      <div class="result-section-card" id="res-annual-plan-card">
+        <h2>📅 年間支払い計画（毎月払い以外）</h2>
+        <p style="font-size:0.82rem;color:#666;margin-bottom:10px;">
+          🌻夏ボーナス・⛄冬ボーナス・📆年一括払い（2年/3年ごとの一括払いを含む）・🔁Nヶ月ごとの一括払いが、
+          今年度（4月〜翌年3月）のうちどの月に発生するかを一覧にしています。年間の資金計画にお使いください。
+        </p>
+        <div class="btn-row" style="margin-bottom:14px;">
+          <button class="btn-pdf" onclick="printAnnualPlan()">🖨️ 年間支払い計画をPDFとして保存・印刷する</button>
+        </div>
+        <div id="annualPlanSummary" style="background:#f8f8ff;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:0.9rem;font-weight:700;color:#4a4a8a;line-height:1.8;"></div>
+        <div id="annualPlanBody"></div>
+      </div>
+    </div>
+  </div>
+
 
   <div class="tab-content" id="tab-history">
     <div class="card">
@@ -552,8 +547,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       <select id="defaultTabSelect" onchange="saveDefaultTab(this.value)" style="width:100%;padding:10px 14px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.95rem;outline:none;background:white;font-weight:600;color:#555;">
         <option value="input">📋 入力</option>
         <option value="result">📊 結果</option>
+        <option value="annual">📅 年間計画</option>
         <option value="history">📅 履歴</option>
         <option value="settings">⚙️ 設定</option>
+
       </select>
     </div>
     <div class="card">
@@ -665,9 +662,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.12-4';
+const APP_VERSION = 'v2026.09.12-5';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.12-5', date:'2026-09-12', note:'「📅年間支払い計画」を結果タブ内のセクションから独立した「📅年間計画」タブに分離（入力→結果→年間計画→履歴→設定の順）。RES_DEFSと結果タブ内の旧カードを削除、起動時デフォルトタブのプルダウンにも追加。表示制御を既存のnoResultMsg/resultAreaWrapperと同じ構造に統一し、印刷CSSをタブ単位の表示切替に簡素化' },
   { v:'v2026.09-12-4', date:'2026-09-12', note:'年間支払い計画の対象期間を暦年（1〜12月）から年度（4月〜翌年3月）に変更。各月スロットに実際の暦年を明示。年間計画専用のPDF印刷ボタンを新設（年間計画セクションのみを印刷するモードを実装、既存の全体印刷ボタンには影響なし）' },
   { v:'v2026.09-12-3', date:'2026-09-12', note:'結果タブに「📅年間支払い計画」を新設。ボーナス・年一括・2/3年ごと・Nヶ月ごとの支払いを1〜12月の月別に集計し夫婦別金額で表示。2/3年ごとの項目は今年が谷の年なら非表示、Nヶ月ごとの項目は年間の全発生月を正しく列挙' },
   { v:'v2026.09-12-2', date:'2026-09-12', note:'結果タブ振込サマリの「入金期限」表記が反映されていなかったため再確認・確定反映' },
@@ -745,7 +743,14 @@ const DEFAULT_INS=[
 const DEFAULT_SAVS=[]; // 貯蓄・投資はデフォルトでは0件
 
 
-const TAB_DEFS=[{id:'input',label:'📋 入力'},{id:'result',label:'📊 結果'},{id:'history',label:'📅 履歴'},{id:'settings',label:'⚙️ 設定'}];
+const TAB_DEFS=[
+  {id:'input',   label:'📋 入力'},
+  {id:'result',  label:'📊 結果'},
+  {id:'annual',  label:'📅 年間計画'},
+  {id:'history', label:'📅 履歴'},
+  {id:'settings',label:'⚙️ 設定'},
+];
+
 const INP_DEFS=[
   {id:'inp-income',label:'👫 夫婦の月収入力'},
   {id:'inp-sync',  label:'🔗 同期状態・共有'},
@@ -763,9 +768,9 @@ const RES_DEFS=[
   {id:'res-sav',    label:'💰 貯蓄・投資集計'},
   {id:'res-periodic',label:'🔁 Nヶ月ごとの一括払い'},
   {id:'res-acct',   label:'💸 夫婦別・振込サマリ'},
-  {id:'res-annual-plan', label:'📅 年間支払い計画'},
   {id:'res-bonus',  label:'🌻⛄📆 ボーナス・年一括払い'},
 ];
+
 
 let tabOrder=TAB_DEFS.map(d=>d.id);
 let inpOrder=INP_DEFS.map(d=>d.id);
@@ -1940,17 +1945,31 @@ function buildAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
   return { slots, fiscalStartYear };
 }
 
-// ★年間支払い計画を描画する（年度版）
+// ★年間支払い計画を「📅年間計画」タブに描画する。
+// noAnnualMsg/annualPlanWrapperの出し分けは、既存のnoResultMsg/resultAreaWrapper
+// （結果タブ）と完全に同じ考え方で作っている。タブが非表示（display:none）でも
+// document.getElementByIdでの取得・innerHTML更新は問題なく行えるため、
+// タブが現在アクティブかどうかに関係なく、この関数はいつ呼ばれても正しく動作する。
 function renderAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
-  const sec = document.getElementById('res-annual-plan');
+  const noMsg = document.getElementById('noAnnualMsg');
+  const wrapper = document.getElementById('annualPlanWrapper');
   const body = document.getElementById('annualPlanBody');
   const summaryEl = document.getElementById('annualPlanSummary');
-  if(!sec || !body) return;
+  if(!wrapper || !body) return;
 
   const { slots, fiscalStartYear } = buildAnnualPlan(hRatio, hSummerRatio, hWinterRatio);
   const hasAny = slots.some(s=>s.items.length>0);
-  if(!hasAny){ sec.classList.add('hidden'); return; }
-  sec.classList.remove('hidden');
+
+  if(!hasAny){
+    wrapper.classList.add('hidden');
+    if(noMsg){
+      noMsg.innerHTML = '<div class="icon">📅</div><div>今年度、毎月払い以外の支払い予定はありません。</div>';
+      noMsg.classList.remove('hidden');
+    }
+    return;
+  }
+  if(noMsg) noMsg.classList.add('hidden');
+  wrapper.classList.remove('hidden');
 
   let grandH=0, grandW=0;
   slots.forEach(s=>{ grandH+=s.hTotal; grandW+=s.wTotal; });
@@ -2000,6 +2019,7 @@ function renderAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
 
   body.innerHTML = html;
 }
+
 
 // ★年間支払い計画専用のPDF印刷関数。年間計画セクションだけを印刷対象にする。
 function printAnnualPlan(){
