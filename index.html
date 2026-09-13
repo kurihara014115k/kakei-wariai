@@ -676,9 +676,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.13-5';
+const APP_VERSION = 'v2026.09.13-6';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.13-6', date:'2026-09-13', note:'年間計画の印刷専用ウィンドウに、元のアプリ画面へ戻るための「✕ 閉じる」ボタン（固定ヘッダーバー）を追加。window.close()が機能しない場合の手動操作案内（フェイルセーフ）も表示するようにした。既存の印刷ボタンは「もう一度、印刷ダイアログを開く」ための補助ボタンとしてデザインを調整' },
   { v:'v2026.09.13-5', date:'2026-09-13', note:'年間計画PDF印刷を根本的に方式変更。同一ページ内でbodyにクラスを付与し@media printで切り替える方式は、待機時間の延長・afterprintイベント化という2回の改善を経ても症状が全く変わらなかった（プレビュー1ページ目に結果タブの内容が写ったままだった）ことから、タイミングの問題ではなく設計自体が信頼できないと判断。window.open()で完全に独立した印刷専用ウィンドウを新規生成し、そちらの中だけで印刷する方式に切り替えた。ユーザージェスチャー起因の同期呼び出しによりiOS Safariのポップアップブロックを回避。従来のbody.print-annual-mode関連のCSS・printArea生成コードは不要になったため削除した' },
   { v:'v2026.09.13-4', date:'2026-09-13', note:'年間計画PDF印刷を再修正。.containerを隠す方式自体はCSSの正しい挙動だが、印刷プレビュー生成に1秒以上かかる環境（特にスマホ・タブレット）において、setTimeoutで固定1秒後に強制的にprint-annual-modeを解除してしまい、プレビュー完成前に通常画面へ戻ってしまっていた可能性を修正。afterprintイベントで解除するよう変更し、フォールバックのタイマーも10秒に延長。通常印刷ルールにもbody:not(.print-annual-mode)を明示し、意図を明確にする防御的リファクタリングも実施。デバッグ用のconsole.logを追加' },
   { v:'v2026.09.13-3', date:'2026-09-13', note:'（既存の履歴。このまま残してください）' },
@@ -2229,15 +2230,44 @@ function printAnnualPlan(){
 <title>${fiscalStartYear}年度 年間支払い計画</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Hiragino Sans','Noto Sans JP','Helvetica Neue',sans-serif; color:#222; padding:8mm; background:white; }
+  /* ★修正：画面上部に固定のヘッダーバーを設けるため、bodyの上部に余白（padding-top）を確保する */
+  body { font-family:'Hiragino Sans','Noto Sans JP','Helvetica Neue',sans-serif; color:#222; padding:8mm; padding-top:60px; background:white; }
+
+  /* ★追加：印刷専用ウィンドウを閉じるためのヘッダーバーのスタイル */
+  .print-header-bar {
+    position: fixed; top: 0; left: 0; width: 100%;
+    background: #333; color: white;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 16px; z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .print-header-bar button {
+    background: #555; color: white; border: 1px solid #777; border-radius: 6px;
+    padding: 6px 16px; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+  }
+  /* ★追加：window.close()が何らかの理由でブロックされた場合に表示する、手動での閉じ方の案内 */
+  #closeFallback {
+    display:none; font-size:0.75rem; color:#ccc; margin-top:4px; text-align:right;
+  }
+
   @media print {
-    body { padding:6mm; }
+    /* 印刷時はヘッダーバーを隠し、body上部の余白も元に戻す */
+    body { padding:6mm; padding-top:6mm; }
     .no-print { display:none !important; }
     tr { page-break-inside:avoid; break-inside:avoid; }
   }
 </style>
 </head>
 <body>
+  <!-- ★追加：元のアプリ画面に戻るための「閉じる」ボタンを配置した固定ヘッダーバー（印刷時は非表示） -->
+  <div class="print-header-bar no-print">
+    <span style="font-size:0.85rem;font-weight:700;">📅 年間計画 印刷プレビュー</span>
+    <div style="text-align:right;">
+      <button onclick="tryCloseWindow()">✕ 閉じる</button>
+      <div id="closeFallback">閉じない場合は、タブ切り替え画面から手動で閉じてください</div>
+    </div>
+  </div>
+
   <div style="border-bottom:3px solid #667eea;padding-bottom:10px;margin-bottom:14px;">
     <h1 style="font-size:16pt;font-weight:800;color:#4a4a8a;margin-bottom:4px;">📅 ${fiscalStartYear}年度 年間支払い計画（毎月払い以外）</h1>
     <div style="font-size:9pt;color:#777;">対象期間：${fiscalStartYear}年4月〜${fiscalStartYear+1}年3月　／　出力日：${printDate}　／　${APP_VERSION}</div>
@@ -2248,7 +2278,11 @@ function printAnnualPlan(){
       <span style="font-size:9pt;font-weight:700;"> （<span style="color:#3949ab;">夫 ${fmt(grandH)}</span> / <span style="color:#c2185b;">妻 ${fmt(grandW)}</span>）</span>
     </span>
   </div>
-  <button class="no-print" onclick="window.print()" style="display:block;width:100%;padding:12px;margin-bottom:16px;background:linear-gradient(135deg,#e53935,#e35d5b);color:white;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">🖨️ この画面をPDFとして保存・印刷する</button>
+  <!-- ★修正：自動で印刷ダイアログが開く仕組みが既にあるため、この赤い大きなボタンは
+       「ダイアログをキャンセルした後、もう一度開きたいとき」のための補助的な役割になる。
+       ヘッダーの「✕ 閉じる」ボタンと役割が競合しないよう、目立たせすぎない色に調整する -->
+  <button class="no-print" onclick="window.print()" style="display:block;width:100%;padding:12px;margin-bottom:16px;background:#f0f0f8;color:#4a4a8a;border:2px solid #d0d0e0;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">🖨️ もう一度、印刷ダイアログを開く</button>
+
   <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
     <thead>
       <tr style="background:#4a4a8a;color:white;">
@@ -2271,7 +2305,20 @@ function printAnnualPlan(){
     window.onload = function(){
       setTimeout(function(){ window.print(); }, 600);
     };
+
+    // ★追加：「✕ 閉じる」ボタンから呼ばれる。window.close()は、このウィンドウ自身が
+    // window.open()によってスクリプトから開かれたものであるため、仕様上正しく機能するはずだが、
+    // 万が一ブラウザ側の設定やバージョンによって無視された場合に備え、
+    // 一定時間後もウィンドウが残っていれば、手動での閉じ方の案内文を表示するフェイルセーフを用意する。
+    function tryCloseWindow(){
+      window.close();
+      setTimeout(function(){
+        const fb = document.getElementById('closeFallback');
+        if(fb) fb.style.display = 'block';
+      }, 300);
+    }
   <\/script>
+
 </body>
 </html>`;
 
