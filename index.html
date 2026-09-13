@@ -321,20 +321,40 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 
 @media print {
   body { background:white !important; }
-  .tab-bar { display:none !important; }
-  #tab-input,#tab-history,#tab-settings,#tab-annual { display:none !important; }
-  #tab-result { display:block !important; }
-  .card,.result-section-card,.compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
-  .btn-row,.btn-add,.btn-add-sub,.btn-add-ins,.btn-calc,.btn-danger-outline,.save-status,.btn-back,.detail-toggle,.row-controls,.acct-check-wrap,.item-paid-cell { display:none !important; }
 
-  /* ★修正：個々の要素を1つずつ列挙して隠す方式（列挙漏れのリスクがある）をやめ、
-     bodyの直下にある要素のうち#printArea以外はすべて隠す、という網羅的なルールに変更する。
-     .containerが隠れれば、その内部にある#tab-resultなどの子孫要素は、
-     どんなdisplay指定を持っていても自動的に描画対象から外れる（CSSの基本規則）。
-     これにより、今後アプリに新しい要素が増えても記述漏れが起きなくなる。 */
-  body.print-annual-mode > *:not(#printArea) { display: none !important; }
-  body.print-annual-mode #printArea { display: block !important; }
+  /* 通常の全体印刷モード（年間計画専用モードではないとき）のルール。
+     .containerを隠せば子孫（#tab-resultなど）は自動的に非表示になるため
+     厳密には必須ではないが、今後ルールが増えた際の混乱を防ぐため、
+     年間計画専用モードのときは適用しないことを明示しておく。 */
+  body:not(.print-annual-mode) .tab-bar { display:none !important; }
+  body:not(.print-annual-mode) #tab-input,
+  body:not(.print-annual-mode) #tab-history,
+  body:not(.print-annual-mode) #tab-settings,
+  body:not(.print-annual-mode) #tab-annual { display:none !important; }
+  body:not(.print-annual-mode) #tab-result { display:block !important; }
+  body:not(.print-annual-mode) .card,
+  body:not(.print-annual-mode) .result-section-card,
+  body:not(.print-annual-mode) .compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
+  body:not(.print-annual-mode) .btn-row,
+  body:not(.print-annual-mode) .btn-add,
+  body:not(.print-annual-mode) .btn-add-sub,
+  body:not(.print-annual-mode) .btn-add-ins,
+  body:not(.print-annual-mode) .btn-calc,
+  body:not(.print-annual-mode) .btn-danger-outline,
+  body:not(.print-annual-mode) .save-status,
+  body:not(.print-annual-mode) .btn-back,
+  body:not(.print-annual-mode) .detail-toggle,
+  body:not(.print-annual-mode) .row-controls,
+  body:not(.print-annual-mode) .acct-check-wrap,
+  body:not(.print-annual-mode) .item-paid-cell { display:none !important; }
+
+  /* 年間計画専用の印刷モード。bodyの直下にある要素のうち#printArea以外はすべて隠す。 */
+  body.print-annual-mode > *:not(#printArea) { display:none !important; }
+  body.print-annual-mode #printArea { display:block !important; }
+  body.print-annual-mode #annualPlanBody > div { break-inside:avoid; }
+  #toast { display:none !important; }
 }
+
 
 
 
@@ -682,9 +702,11 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.13-2';
+const APP_VERSION = 'v2026.09.13-4';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.13-4', date:'2026-09-13', note:'年間計画PDF印刷を再修正。.containerを隠す方式自体はCSSの正しい挙動だが、印刷プレビュー生成に1秒以上かかる環境（特にスマホ・タブレット）において、setTimeoutで固定1秒後に強制的にprint-annual-modeを解除してしまい、プレビュー完成前に通常画面へ戻ってしまっていた可能性を修正。afterprintイベントで解除するよう変更し、フォールバックのタイマーも10秒に延長。通常印刷ルールにもbody:not(.print-annual-mode)を明示し、意図を明確にする防御的リファクタリングも実施。デバッグ用のconsole.logを追加' },
+  { v:'v2026.09.13-3', date:'2026-09-13', note:'（既存の履歴。このまま残してください）' },
   { v:'v2026.09.13-2', date:'2026-09-13', note:'年間計画（buildAnnualPlan）の2年/3年ごと払いの年度振り分けロジックを修正。JavaScriptの%演算子が負の値を返す挙動により、起点年がまだ来ていない（将来に設定されている）項目が、起点年より前の年度に誤って表示されるバグを解消。mod()ヘルパー関数と、cycleYearが起点年より前にならないようにするガード条件を追加' },
   { v:'v2026.09.13-1', date:'2026-09-13', note:'年間計画PDFの印刷対象範囲の指定方法を、個々の要素を列挙する方式から「bodyの直下でprintArea以外はすべて隠す」という網羅的な指定に変更（記述漏れによる印刷対象の混入を構造的に防止）。設定タブに、入力内容・マスタデータ・振込状況・履歴をまとめてバックアップ・復元できる機能を新設' },
   { v:'v2026.09.12-6', date:'2026-09.12', note:'年間計画のPDF印刷を全面改修。個々のタブ要素をCSSで上書きする方式（結果タブが混ざって印刷される不具合の原因）を廃止し、印刷時はアプリ全体（.container）を一括で隠して専用の帳票（#printArea）だけを表示する方式に変更。あわせて、画面のカードUIをそのまま印刷するのではなく、年月ごとに項目をまとめ月次小計付きの一覧表（元帳形式）を自動生成するよう変更し、見やすく整形されたPDFを出力できるようにした' },
@@ -2262,10 +2284,33 @@ function printAnnualPlan(){
   printArea.innerHTML = printHtml;
 
   showToast('印刷ダイアログが開きます。「PDFに保存」を選択してください。');
+
+  // ★修正：以前は1秒後に無条件でprint-annual-modeを解除していたため、
+  // スマホ・タブレットなど印刷プレビューの生成に1秒以上かかる環境では、
+  // プレビューがまだ作られている最中に元の画面（.container）へ戻ってしまい、
+  // それがそのままPDFに書き出されてしまっていた可能性が高い。
+  // ブラウザが「印刷ダイアログが閉じられた」ことを検知するafterprintイベントを
+  // 主なきっかけとして使い、それが発火しない古い環境向けの保険として
+  // フォールバックの待機時間を10秒に延長する。
+  let cleaned = false;
+  const cleanup = () => {
+    if(cleaned) return;
+    cleaned = true;
+    document.body.classList.remove('print-annual-mode');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+
   document.body.classList.add('print-annual-mode');
+  // ★デバッグ用：本当にクラスが付いているか、printAreaに内容が入っているかを
+  // コンソールで確認できるようにする。問題が解決しない場合、この2行の出力結果を
+  // 教えていただくと、次の切り分けが正確に行えます。
+  console.log('[年間計画PDF] print-annual-mode適用:', document.body.classList.contains('print-annual-mode'));
+  console.log('[年間計画PDF] printArea内容の文字数:', printArea.innerHTML.length);
+
   setTimeout(()=>{
     window.print();
-    setTimeout(()=>document.body.classList.remove('print-annual-mode'), 1000);
+    setTimeout(cleanup, 10000); // afterprintが発火しない環境向けの保険（10秒）
   }, 300);
 }
 
