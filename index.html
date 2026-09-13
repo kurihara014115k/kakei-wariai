@@ -682,9 +682,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.13-1';
+const APP_VERSION = 'v2026.09.13-2';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.13-2', date:'2026-09-13', note:'年間計画（buildAnnualPlan）の2年/3年ごと払いの年度振り分けロジックを修正。JavaScriptの%演算子が負の値を返す挙動により、起点年がまだ来ていない（将来に設定されている）項目が、起点年より前の年度に誤って表示されるバグを解消。mod()ヘルパー関数と、cycleYearが起点年より前にならないようにするガード条件を追加' },
   { v:'v2026.09.13-1', date:'2026-09-13', note:'年間計画PDFの印刷対象範囲の指定方法を、個々の要素を列挙する方式から「bodyの直下でprintArea以外はすべて隠す」という網羅的な指定に変更（記述漏れによる印刷対象の混入を構造的に防止）。設定タブに、入力内容・マスタデータ・振込状況・履歴をまとめてバックアップ・復元できる機能を新設' },
   { v:'v2026.09.12-6', date:'2026-09.12', note:'年間計画のPDF印刷を全面改修。個々のタブ要素をCSSで上書きする方式（結果タブが混ざって印刷される不具合の原因）を廃止し、印刷時はアプリ全体（.container）を一括で隠して専用の帳票（#printArea）だけを表示する方式に変更。あわせて、画面のカードUIをそのまま印刷するのではなく、年月ごとに項目をまとめ月次小計付きの一覧表（元帳形式）を自動生成するよう変更し、見やすく整形されたPDFを出力できるようにした' },
   { v:'v2026.09.12-5', date:'2026-09-12', note:'「📅年間支払い計画」を結果タブ内のセクションから独立した「📅年間計画」タブに分離（入力→結果→年間計画→履歴→設定の順）。RES_DEFSと結果タブ内の旧カードを削除、起動時デフォルトタブのプルダウンにも追加。表示制御を既存のnoResultMsg/resultAreaWrapperと同じ構造に統一し、印刷CSSをタブ単位の表示切替に簡素化' },
@@ -1903,6 +1904,14 @@ function buildAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
     slot.hTotal += hVal; slot.wTotal += wVal;
   }
 
+  // ★追加：JavaScript標準の%演算子は左辺が負の場合に負の値を返すため、
+  // そのまま使うと「起点年より前の年度」を扱う際に計算を誤る。
+  // ((n % m) + m) % m という形で、常に0以上の正しい剰余（数学的なモジュロ）を計算する。
+  function mod(n, m){
+    return ((n % m) + m) % m;
+  }
+
+
   // Nヶ月ごとの支払い：年度内の全発生月を洗い出す（既存のgetPeriodicCycleInfoと同じ剰余演算）
   function pushPeriodic(interval, startMonth, name, amount, hPct, label){
     slots.forEach(s=>{
@@ -1919,13 +1928,20 @@ function buildAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
     const sMonth = parseInt(startMonth)||1;
     const targetMonth = parseInt(dueMonth) || sMonth;
     slots.forEach(s=>{
-      const cycleYear = s.year - ((s.year - sYear) % intervalYears);
+      // ★修正：mod()を使い、負の剰余による誤計算を防ぐ
+      const cycleYear = s.year - mod(s.year - sYear, intervalYears);
+      // ★追加：この項目がまだ始まっていない年度（起点年より前）を参照している場合、
+      // mod()だけでは「年の差がちょうど頻度の倍数」のケースを防げない（cycleYearがs.yearと
+      // 同じ値になってしまうため）。cycleYearが起点年より前になることは本来あり得ないので、
+      // このガードで確実に除外する。
+      if(cycleYear < sYear) return;
       const targetYear = (targetMonth < sMonth) ? cycleYear+1 : cycleYear;
       if(s.month === targetMonth && s.year === targetYear){
         push(s.month, s.year, name, amount, hPct, `📆${intervalYears}年ごと`);
       }
     });
   }
+
 
   // 月＋日を指定する年一括系（ボーナス・年一括払い）を、正しい年に振り分けるヘルパー
   function pushYearlyLike(dueMonth, defaultMonth, name, amount, hPct, label){
