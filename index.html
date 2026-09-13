@@ -321,39 +321,13 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 
 @media print {
   body { background:white !important; }
-
-  /* 通常の全体印刷モード（年間計画専用モードではないとき）のルール。
-     .containerを隠せば子孫（#tab-resultなど）は自動的に非表示になるため
-     厳密には必須ではないが、今後ルールが増えた際の混乱を防ぐため、
-     年間計画専用モードのときは適用しないことを明示しておく。 */
-  body:not(.print-annual-mode) .tab-bar { display:none !important; }
-  body:not(.print-annual-mode) #tab-input,
-  body:not(.print-annual-mode) #tab-history,
-  body:not(.print-annual-mode) #tab-settings,
-  body:not(.print-annual-mode) #tab-annual { display:none !important; }
-  body:not(.print-annual-mode) #tab-result { display:block !important; }
-  body:not(.print-annual-mode) .card,
-  body:not(.print-annual-mode) .result-section-card,
-  body:not(.print-annual-mode) .compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
-  body:not(.print-annual-mode) .btn-row,
-  body:not(.print-annual-mode) .btn-add,
-  body:not(.print-annual-mode) .btn-add-sub,
-  body:not(.print-annual-mode) .btn-add-ins,
-  body:not(.print-annual-mode) .btn-calc,
-  body:not(.print-annual-mode) .btn-danger-outline,
-  body:not(.print-annual-mode) .save-status,
-  body:not(.print-annual-mode) .btn-back,
-  body:not(.print-annual-mode) .detail-toggle,
-  body:not(.print-annual-mode) .row-controls,
-  body:not(.print-annual-mode) .acct-check-wrap,
-  body:not(.print-annual-mode) .item-paid-cell { display:none !important; }
-
-  /* 年間計画専用の印刷モード。bodyの直下にある要素のうち#printArea以外はすべて隠す。 */
-  body.print-annual-mode > *:not(#printArea) { display:none !important; }
-  body.print-annual-mode #printArea { display:block !important; }
-  body.print-annual-mode #annualPlanBody > div { break-inside:avoid; }
-  #toast { display:none !important; }
+  .tab-bar { display:none !important; }
+  #tab-input,#tab-history,#tab-settings,#tab-annual { display:none !important; }
+  #tab-result { display:block !important; }
+  .card,.result-section-card,.compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
+  .btn-row,.btn-add,.btn-add-sub,.btn-add-ins,.btn-calc,.btn-danger-outline,.save-status,.btn-back,.detail-toggle,.row-controls,.acct-check-wrap,.item-paid-cell { display:none !important; }
 }
+
 
 
 
@@ -702,9 +676,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.13-4';
+const APP_VERSION = 'v2026.09.13-5';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.13-5', date:'2026-09-13', note:'年間計画PDF印刷を根本的に方式変更。同一ページ内でbodyにクラスを付与し@media printで切り替える方式は、待機時間の延長・afterprintイベント化という2回の改善を経ても症状が全く変わらなかった（プレビュー1ページ目に結果タブの内容が写ったままだった）ことから、タイミングの問題ではなく設計自体が信頼できないと判断。window.open()で完全に独立した印刷専用ウィンドウを新規生成し、そちらの中だけで印刷する方式に切り替えた。ユーザージェスチャー起因の同期呼び出しによりiOS Safariのポップアップブロックを回避。従来のbody.print-annual-mode関連のCSS・printArea生成コードは不要になったため削除した' },
   { v:'v2026.09.13-4', date:'2026-09-13', note:'年間計画PDF印刷を再修正。.containerを隠す方式自体はCSSの正しい挙動だが、印刷プレビュー生成に1秒以上かかる環境（特にスマホ・タブレット）において、setTimeoutで固定1秒後に強制的にprint-annual-modeを解除してしまい、プレビュー完成前に通常画面へ戻ってしまっていた可能性を修正。afterprintイベントで解除するよう変更し、フォールバックのタイマーも10秒に延長。通常印刷ルールにもbody:not(.print-annual-mode)を明示し、意図を明確にする防御的リファクタリングも実施。デバッグ用のconsole.logを追加' },
   { v:'v2026.09.13-3', date:'2026-09-13', note:'（既存の履歴。このまま残してください）' },
   { v:'v2026.09.13-2', date:'2026-09-13', note:'年間計画（buildAnnualPlan）の2年/3年ごと払いの年度振り分けロジックを修正。JavaScriptの%演算子が負の値を返す挙動により、起点年がまだ来ていない（将来に設定されている）項目が、起点年より前の年度に誤って表示されるバグを解消。mod()ヘルパー関数と、cycleYearが起点年より前にならないようにするガード条件を追加' },
@@ -2197,10 +2172,6 @@ function showConfirmToast(message){
 }
 
 
-// ★年間支払い計画専用のPDF印刷関数（元帳形式レイアウト版）。
-// 画面のカードUIをそのまま印刷するのではなく、印刷・PDF化に特化した
-// 「年月ごとにまとめた一覧表＋月次小計」を裏側で動的に組み立て、
-// bodyの直下に追加した#printAreaに流し込んでから印刷する。
 function printAnnualPlan(){
   if(!lastCalcResult){ showToast('先に計算を実行してください'); return; }
 
@@ -2244,75 +2215,80 @@ function printAnnualPlan(){
     </tr>`;
   });
 
-  const printHtml = `
-    <div style="font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#222;padding:6mm;">
-      <div style="border-bottom:3px solid #667eea;padding-bottom:10px;margin-bottom:14px;">
-        <h1 style="font-size:16pt;font-weight:800;color:#4a4a8a;margin-bottom:4px;">📅 ${fiscalStartYear}年度 年間支払い計画（毎月払い以外）</h1>
-        <div style="font-size:9pt;color:#777;">対象期間：${fiscalStartYear}年4月〜${fiscalStartYear+1}年3月　／　出力日：${printDate}　／　${APP_VERSION}</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8ff;border:1px solid #d8d8f0;border-left:5px solid #667eea;border-radius:6px;padding:10px 16px;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-        <span style="font-size:10pt;color:#555;">年間予定合計（毎月払い以外）</span>
-        <span style="font-size:14pt;font-weight:800;color:#4a4a8a;">${fmt(grandH+grandW)}
-          <span style="font-size:9pt;font-weight:700;"> （<span style="color:#3949ab;">夫 ${fmt(grandH)}</span> / <span style="color:#c2185b;">妻 ${fmt(grandW)}</span>）</span>
-        </span>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
-        <thead>
-          <tr style="background:#4a4a8a;color:white;">
-            <th style="border:1px solid #999;padding:8px;width:12%;">年月</th>
-            <th style="border:1px solid #999;padding:8px;width:32%;">項目名</th>
-            <th style="border:1px solid #999;padding:8px;width:14%;">サイクル</th>
-            <th style="border:1px solid #999;padding:8px;width:14%;">金額</th>
-            <th style="border:1px solid #999;padding:8px;width:14%;">夫の負担</th>
-            <th style="border:1px solid #999;padding:8px;width:14%;">妻の負担</th>
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-      <div style="margin-top:14px;font-size:7.5pt;color:#aaa;border-top:1px solid #eee;padding-top:6px;">
-        ※ 毎月払いの費用・保険・サブスク（月額）は含まれていません。「夫婦家計割合計算アプリ」より出力。
-      </div>
-    </div>`;
-
-  let printArea = document.getElementById('printArea');
-  if(!printArea){
-    printArea = document.createElement('div');
-    printArea.id = 'printArea';
-    printArea.style.display = 'none';
-    document.body.appendChild(printArea);
+  // ★方式転換：これまでの「同一ページ内でbodyにクラスを付け、@media printで切り替える」方式は、
+  // 2回の改善（afterprintイベント化・待機時間延長）を行っても全く同じ症状で失敗した。
+  // 待機時間を延ばしても直らなかった事実は「タイミングの問題ではない」ことを示しており、
+  // この設計自体を放棄し、メインアプリとは完全に無関係な、独立した印刷専用ウィンドウを
+  // 新しく開いてそちらだけを印刷する方式に切り替える。これにより、メインアプリの複雑な
+  // タブ構造・sticky要素・既存の印刷ルールから完全に無関係になり、混ざる余地がなくなる。
+  const fullHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>${fiscalStartYear}年度 年間支払い計画</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Hiragino Sans','Noto Sans JP','Helvetica Neue',sans-serif; color:#222; padding:8mm; background:white; }
+  @media print {
+    body { padding:6mm; }
+    .no-print { display:none !important; }
+    tr { page-break-inside:avoid; break-inside:avoid; }
   }
-  printArea.innerHTML = printHtml;
+</style>
+</head>
+<body>
+  <div style="border-bottom:3px solid #667eea;padding-bottom:10px;margin-bottom:14px;">
+    <h1 style="font-size:16pt;font-weight:800;color:#4a4a8a;margin-bottom:4px;">📅 ${fiscalStartYear}年度 年間支払い計画（毎月払い以外）</h1>
+    <div style="font-size:9pt;color:#777;">対象期間：${fiscalStartYear}年4月〜${fiscalStartYear+1}年3月　／　出力日：${printDate}　／　${APP_VERSION}</div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;background:#f8f8ff;border:1px solid #d8d8f0;border-left:5px solid #667eea;border-radius:6px;padding:10px 16px;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+    <span style="font-size:10pt;color:#555;">年間予定合計（毎月払い以外）</span>
+    <span style="font-size:14pt;font-weight:800;color:#4a4a8a;">${fmt(grandH+grandW)}
+      <span style="font-size:9pt;font-weight:700;"> （<span style="color:#3949ab;">夫 ${fmt(grandH)}</span> / <span style="color:#c2185b;">妻 ${fmt(grandW)}</span>）</span>
+    </span>
+  </div>
+  <button class="no-print" onclick="window.print()" style="display:block;width:100%;padding:12px;margin-bottom:16px;background:linear-gradient(135deg,#e53935,#e35d5b);color:white;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">🖨️ この画面をPDFとして保存・印刷する</button>
+  <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
+    <thead>
+      <tr style="background:#4a4a8a;color:white;">
+        <th style="border:1px solid #999;padding:8px;width:12%;">年月</th>
+        <th style="border:1px solid #999;padding:8px;width:32%;">項目名</th>
+        <th style="border:1px solid #999;padding:8px;width:14%;">サイクル</th>
+        <th style="border:1px solid #999;padding:8px;width:14%;">金額</th>
+        <th style="border:1px solid #999;padding:8px;width:14%;">夫の負担</th>
+        <th style="border:1px solid #999;padding:8px;width:14%;">妻の負担</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+  <div style="margin-top:14px;font-size:7.5pt;color:#aaa;border-top:1px solid #eee;padding-top:6px;">
+    ※ 毎月払いの費用・保険・サブスク（月額）は含まれていません。「夫婦家計割合計算アプリ」より出力。
+  </div>
+  <script>
+    // この印刷専用ウィンドウが開いたら自動的に印刷ダイアログを起動する。
+    // コンテンツの描画が完了する前にダイアログが開いてしまわないよう、少し待つ。
+    window.onload = function(){
+      setTimeout(function(){ window.print(); }, 600);
+    };
+  <\/script>
+</body>
+</html>`;
 
-  showToast('印刷ダイアログが開きます。「PDFに保存」を選択してください。');
-
-  // ★修正：以前は1秒後に無条件でprint-annual-modeを解除していたため、
-  // スマホ・タブレットなど印刷プレビューの生成に1秒以上かかる環境では、
-  // プレビューがまだ作られている最中に元の画面（.container）へ戻ってしまい、
-  // それがそのままPDFに書き出されてしまっていた可能性が高い。
-  // ブラウザが「印刷ダイアログが閉じられた」ことを検知するafterprintイベントを
-  // 主なきっかけとして使い、それが発火しない古い環境向けの保険として
-  // フォールバックの待機時間を10秒に延長する。
-  let cleaned = false;
-  const cleanup = () => {
-    if(cleaned) return;
-    cleaned = true;
-    document.body.classList.remove('print-annual-mode');
-    window.removeEventListener('afterprint', cleanup);
-  };
-  window.addEventListener('afterprint', cleanup);
-
-  document.body.classList.add('print-annual-mode');
-  // ★デバッグ用：本当にクラスが付いているか、printAreaに内容が入っているかを
-  // コンソールで確認できるようにする。問題が解決しない場合、この2行の出力結果を
-  // 教えていただくと、次の切り分けが正確に行えます。
-  console.log('[年間計画PDF] print-annual-mode適用:', document.body.classList.contains('print-annual-mode'));
-  console.log('[年間計画PDF] printArea内容の文字数:', printArea.innerHTML.length);
-
-  setTimeout(()=>{
-    window.print();
-    setTimeout(cleanup, 10000); // afterprintが発火しない環境向けの保険（10秒）
-  }, 300);
+  // ★重要：window.open()は、この関数がボタンのonclickから同期的に呼ばれている
+  // （setTimeout等でラップしていない）からこそ、iOS Safariのポップアップブロックを
+  // 回避できる。もしこの呼び出しをsetTimeoutの中に入れてしまうと、ブラウザは
+  // 「ユーザーの操作に起因しない自動的なポップアップ」と判断してブロックする可能性が高い。
+  const printWin = window.open('', '_blank');
+  if(!printWin){
+    showToast('⚠️ ポップアップがブロックされました。設定アプリ→Safari→「ポップアップブロック」をオフにしてお試しください。');
+    return;
+  }
+  printWin.document.write(fullHtml);
+  printWin.document.close();
+  printWin.focus();
 }
+
 
 
 
