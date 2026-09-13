@@ -327,14 +327,13 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   .card,.result-section-card,.compare-card { box-shadow:none !important; border:1px solid #ddd !important; }
   .btn-row,.btn-add,.btn-add-sub,.btn-add-ins,.btn-calc,.btn-danger-outline,.save-status,.btn-back,.detail-toggle,.row-controls,.acct-check-wrap,.item-paid-cell { display:none !important; }
 
-  /* ★年間計画専用のPDF出力モード。
-     これまでのように個々のタブ要素を1つずつ上書きするのではなく、
-     アプリのUI全体（.container）をまるごと隠し、bodyの直下に用意した
-     専用の帳票（#printArea）だけを表示する。これにより、他にどんな
-     display指定が残っていても、確実に年間計画だけが印刷されるようにする。 */
-  body.print-annual-mode .container { display:none !important; }
-  body.print-annual-mode #printArea { display:block !important; }
-  #toast { display:none !important; } /* 印刷時にトーストが偶然表示されていても隠す */
+  /* ★修正：個々の要素を1つずつ列挙して隠す方式（列挙漏れのリスクがある）をやめ、
+     bodyの直下にある要素のうち#printArea以外はすべて隠す、という網羅的なルールに変更する。
+     .containerが隠れれば、その内部にある#tab-resultなどの子孫要素は、
+     どんなdisplay指定を持っていても自動的に描画対象から外れる（CSSの基本規則）。
+     これにより、今後アプリに新しい要素が増えても記述漏れが起きなくなる。 */
+  body.print-annual-mode > *:not(#printArea) { display: none !important; }
+  body.print-annual-mode #printArea { display: block !important; }
 }
 
 
@@ -545,6 +544,24 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 
    <div class="tab-content" id="tab-settings">
     <div class="card">
+      <h2>💾 データのバックアップと復元</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">
+        現在の入力内容・マスタデータ（口座名・保険種別・カスタム割合・締め日）・振込チェック状態・履歴を、
+        1つのJSONファイルとしてお使いの端末に保存します。Firebase側で何か問題が起きても、
+        このファイルがあればいつでも元の状態に戻せます。定期的なバックアップをお勧めします。<br>
+        <strong style="color:#c62828;">※ 復元すると現在のすべてのデータが上書きされます。この操作は元に戻せません。</strong>
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn-primary" onclick="downloadBackup()">📥 今すぐバックアップを保存する</button>
+        <label style="padding:12px;background:#f8f8ff;border:2px dashed #667eea;border-radius:10px;text-align:center;cursor:pointer;font-weight:700;color:#667eea;font-size:0.92rem;">
+          📤 バックアップファイルから復元する
+          <input type="file" accept="application/json,.json" style="display:none;" onchange="restoreFromBackup(this)">
+        </label>
+        <div id="backupStatus" style="font-size:0.8rem;color:#888;"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>🏠 起動時に開くタブ</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">アプリを開いたときに最初に表示するタブを選べます（この端末だけの設定です）。</p>
       <select id="defaultTabSelect" onchange="saveDefaultTab(this.value)" style="width:100%;padding:10px 14px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.95rem;outline:none;background:white;font-weight:600;color:#555;">
@@ -665,9 +682,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.12-6';
+const APP_VERSION = 'v2026.09.13-1';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.13-1', date:'2026-09-13', note:'年間計画PDFの印刷対象範囲の指定方法を、個々の要素を列挙する方式から「bodyの直下でprintArea以外はすべて隠す」という網羅的な指定に変更（記述漏れによる印刷対象の混入を構造的に防止）。設定タブに、入力内容・マスタデータ・振込状況・履歴をまとめてバックアップ・復元できる機能を新設' },
   { v:'v2026.09.12-6', date:'2026-09.12', note:'年間計画のPDF印刷を全面改修。個々のタブ要素をCSSで上書きする方式（結果タブが混ざって印刷される不具合の原因）を廃止し、印刷時はアプリ全体（.container）を一括で隠して専用の帳票（#printArea）だけを表示する方式に変更。あわせて、画面のカードUIをそのまま印刷するのではなく、年月ごとに項目をまとめ月次小計付きの一覧表（元帳形式）を自動生成するよう変更し、見やすく整形されたPDFを出力できるようにした' },
   { v:'v2026.09.12-5', date:'2026-09-12', note:'「📅年間支払い計画」を結果タブ内のセクションから独立した「📅年間計画」タブに分離（入力→結果→年間計画→履歴→設定の順）。RES_DEFSと結果タブ内の旧カードを削除、起動時デフォルトタブのプルダウンにも追加。表示制御を既存のnoResultMsg/resultAreaWrapperと同じ構造に統一し、印刷CSSをタブ単位の表示切替に簡素化' },
   { v:'v2026.09-12-4', date:'2026-09-12', note:'年間支払い計画の対象期間を暦年（1〜12月）から年度（4月〜翌年3月）に変更。各月スロットに実際の暦年を明示。年間計画専用のPDF印刷ボタンを新設（年間計画セクションのみを印刷するモードを実装、既存の全体印刷ボタンには影響なし）' },
@@ -2024,6 +2042,122 @@ function renderAnnualPlan(hRatio, hSummerRatio, hWinterRatio){
   body.innerHTML = html;
 }
 
+// ★バックアップ：現在の入力内容・マスタデータ・振込状況・履歴を1つのJSONファイルとして保存する
+async function downloadBackup(){
+  showToast('📦 バックアップを作成しています...');
+  let history = null;
+  try{ history = await fbGet(HISTORY_PATH); }catch(e){ /* 履歴の取得に失敗しても他の項目の保存は続ける */ }
+
+  const backup = {
+    _backupMeta: {
+      appVersion: APP_VERSION,
+      createdAt: new Date().toLocaleString('ja-JP'),
+      note: '夫婦家計割合計算アプリのバックアップファイルです。「⚙️設定」タブの「バックアップから復元する」で読み込んでください。'
+    },
+    current: getFormData(),
+    master: masterData,
+    paid: paidData,
+    history: history
+  };
+
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const filename = `kakeibo_backup_${stamp}.json`;
+
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const statusEl = document.getElementById('backupStatus');
+  if(statusEl) statusEl.textContent = `✅ 保存しました：${filename}`;
+  showToast(`✅ バックアップを保存しました：${filename}`);
+}
+
+// ★復元：選択したバックアップファイルから、入力内容・マスタ・振込状況・履歴をすべて復元する
+function restoreFromBackup(inputEl){
+  const file = inputEl.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    let raw;
+    try{ raw = JSON.parse(e.target.result); }
+    catch(err){ showToast('❌ このファイルは正しいバックアップ形式ではありません'); inputEl.value=''; return; }
+
+    if(!raw || !raw.current){
+      showToast('❌ このファイルは正しいバックアップ形式ではありません');
+      inputEl.value=''; return;
+    }
+
+    const meta = raw._backupMeta || {};
+    const ok = await showConfirmToast(
+      `📤 このバックアップから復元しますか？<br><br>` +
+      `<span style="font-size:0.85rem;color:#888;">作成日時：${meta.createdAt||'不明'}<br>バージョン：${meta.appVersion||'不明'}</span><br><br>` +
+      `<strong style="color:#c62828;">現在の入力内容・マスタ設定・振込チェック状態` +
+      `${raw.history ? '・履歴' : ''}` +
+      `がすべて上書きされます。この操作は元に戻せません。</strong>`
+    );
+    if(!ok){ inputEl.value=''; return; }
+
+    try{
+      applyData(raw.current);
+      await pushToFirebase();
+
+      if(raw.master){
+        masterData = raw.master;
+        await fbPut(MASTER_PATH, masterData);
+        renderMasterLists(); refreshAllDropdowns(); renderBillingStartDaySetting();
+      }
+
+      if(raw.paid){
+        paidData = raw.paid;
+        if(!paidData.periodicLog) paidData.periodicLog = {};
+        if(!paidData.yearlyLog) paidData.yearlyLog = {};
+        await fbPut(PAID_PATH, paidData);
+      }
+
+      if(raw.history){
+        await fbPut(HISTORY_PATH, raw.history);
+        loadHistoryList();
+      }
+
+      calculate(false);
+      renderSettledItemsPanel();
+
+      const statusEl = document.getElementById('backupStatus');
+      if(statusEl) statusEl.textContent = `✅ 復元しました（作成日時：${meta.createdAt||'不明'}）`;
+      showToast('✅ バックアップから復元しました');
+    }catch(err){
+      showToast('❌ 復元中にエラーが発生しました。一部だけ反映されている可能性があります');
+    }
+    inputEl.value = '';
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+// ★alert()/confirm()の代わりに使う確認モーダル。すでに同名の関数が別の機能（支払い済み記録の
+// リセット等）のために存在している場合は、重複して追加しないでください（1件だけにしてください）。
+function showConfirmToast(message){
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3>⚠️ 確認</h3>
+        <p style="line-height:1.6;">${message}</p>
+        <div class="modal-btns">
+          <button class="modal-cancel" id="confirmNo">キャンセル</button>
+          <button class="modal-confirm" id="confirmYes">実行する</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#confirmYes').onclick = () => { document.body.removeChild(overlay); resolve(true); };
+    overlay.querySelector('#confirmNo').onclick  = () => { document.body.removeChild(overlay); resolve(false); };
+  });
+}
+
 
 // ★年間支払い計画専用のPDF印刷関数（元帳形式レイアウト版）。
 // 画面のカードUIをそのまま印刷するのではなく、印刷・PDF化に特化した
@@ -2046,7 +2180,6 @@ function printAnnualPlan(){
   let grandH=0, grandW=0;
   slots.forEach(s=>{ grandH+=s.hTotal; grandW+=s.wTotal; });
 
-  // 年月ごとにグループ化した行＋月次小計行を組み立てる
   let rowsHtml = '';
   slots.forEach(s=>{
     if(s.items.length===0) return;
@@ -2055,7 +2188,6 @@ function printAnnualPlan(){
     s.items.forEach((it, idx)=>{
       rowsHtml += `<tr style="${monthBg}page-break-inside:avoid;break-inside:avoid;">`;
       if(idx===0){
-        // 年月のセルをその月の項目数だけ縦に結合する（rowspan）
         rowsHtml += `<td rowspan="${s.items.length}" style="border:1px solid #999;padding:8px;text-align:center;font-weight:800;vertical-align:middle;white-space:nowrap;">${s.label}${isCurrent?'<br><span style="font-size:8pt;color:#667eea;">★今月</span>':''}</td>`;
       }
       rowsHtml += `
@@ -2066,7 +2198,6 @@ function printAnnualPlan(){
         <td style="border:1px solid #999;padding:7px 8px;text-align:right;color:#c2185b;">${fmt(it.wVal)}</td>
       </tr>`;
     });
-    // 月次小計行：年月・項目名・サイクルの3列分をcolspanでまとめ、金額3列と合わせて6列に揃える
     rowsHtml += `<tr style="page-break-inside:avoid;break-inside:avoid;background:#f2f2f7;font-weight:800;">
       <td colspan="3" style="border:1px solid #999;padding:7px 8px;text-align:right;">${s.label} 小計</td>
       <td style="border:1px solid #999;padding:7px 8px;text-align:right;">${fmt(s.hTotal+s.wTotal)}</td>
@@ -2105,7 +2236,6 @@ function printAnnualPlan(){
       </div>
     </div>`;
 
-  // 印刷専用エリアをbodyの直下に用意し、内容を流し込む（通常表示では非表示のまま）
   let printArea = document.getElementById('printArea');
   if(!printArea){
     printArea = document.createElement('div');
@@ -2122,6 +2252,7 @@ function printAnnualPlan(){
     setTimeout(()=>document.body.classList.remove('print-annual-mode'), 1000);
   }, 300);
 }
+
 
 
 
