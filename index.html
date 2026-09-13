@@ -14,6 +14,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
+:root {
+  /* ★追加：タブバーの実際の高さをJSで動的に測定して代入する変数。
+     50pxという初期値は、JS実行が完了するまでの一瞬だけ使われるフォールバック値。 */
+  --tab-bar-height: 50px;
+}
 body { font-family:'Segoe UI','Helvetica Neue',sans-serif; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; }
 .container { max-width:1000px; margin:0 auto; padding:0 12px 40px; }
 h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-shadow:0 2px 4px rgba(0,0,0,0.3); padding-top:20px; }
@@ -172,10 +177,13 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 .transfer-person-title {
   font-size: 1.05rem; font-weight: 800; padding: 10px 14px; border-radius: 10px; margin-bottom: 16px;
   position: sticky;
-  top: 50px; /* タブバーの高さ分だけ下にずらす目安値。ズレていたら調整します */
-  z-index: 90; /* タブバー（z-index:100）より低い値にして重なりを防ぐ */
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* 「浮いている」感を出す */
+  /* ★修正：固定値50pxではなく、JSで測定した実際のタブバー高さ（--tab-bar-height）を使う。
+     タブが増減して1行/2行のどちらになっても、常に正しい位置に固定される */
+  top: var(--tab-bar-height);
+  z-index: 90;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
+
 .transfer-person-title.husband { background: linear-gradient(135deg,#667eea,#764ba2); color: white; }
 .transfer-person-title.wife    { background: linear-gradient(135deg,#f093fb,#f5576c); color: white; }
 
@@ -190,8 +198,10 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
   /* ★追加：二重sticky。夫/妻ラベル（top:50px）の直下に、期間ラベルも固定表示する。
      同じtop値を持つsticky要素は、各期間ブロックのスクロールに応じて自然に入れ替わる */
   position: sticky;
-  top: 96px; /* タブバー(約50px) ＋ 夫/妻ラベルの高さ(約46px) の合計を目安にした値 */
-  z-index: 85; /* 夫/妻ラベル(z-index:90)より低く、通常のコンテンツより高くする */
+  /* ★修正：タブバーの実際の高さ（--tab-bar-height）＋夫/妻ラベルの高さ（約46px、
+     短い1行のテキストなので画面幅を問わず一定）を足した位置に固定する */
+  top: calc(var(--tab-bar-height) + 46px);
+  z-index: 85;
 }
 
 .transfer-period-title.pt-monthly      { background:linear-gradient(135deg,#667eea,#764ba2); }
@@ -377,11 +387,6 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
         <div class="ratio-labels"><span id="husbandRatioLabel">夫 --%</span><span id="wifeRatioLabel">妻 --%</span></div>
       </div>
 
-      <div class="card" id="inp-sync">
-        <h2>🔗 同期状態・共有</h2>
-        <div class="btn-row"><button class="btn-secondary" onclick="shareLink()">📋 このページのURLをコピーする</button></div>
-        <div id="syncStatus" class="sync-status sync-wait">⏳ Firebase接続中...</div>
-      </div>
       <div class="card" id="inp-sub">
         <h2>📱 サブスクリプション管理</h2>
         <p style="font-size:0.8rem;color:#888;margin-bottom:10px;">月払いの場合は月額を、年払いの場合は年額を入力してください。年払いを選ぶと月々の家計からは除外され、結果画面の「年一括払い」セクションに合算されます。</p>
@@ -536,8 +541,16 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
     </div>
   </div>
 
-   <div class="tab-content" id="tab-settings">
-    <div class="card">
+      <div class="tab-content" id="tab-settings">
+    <div id="settingsArea" style="display:flex; flex-direction:column;">
+
+    <div class="card" id="set-sync">
+      <h2>🔗 同期状態・共有</h2>
+      <div class="btn-row"><button class="btn-secondary" onclick="shareLink()">📋 このページのURLをコピーする</button></div>
+      <div id="syncStatus" class="sync-status sync-wait">⏳ Firebase接続中...</div>
+    </div>
+
+    <div class="card" id="set-backup">
       <h2>💾 データのバックアップと復元</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">
         現在の入力内容・マスタデータ（口座名・保険種別・カスタム割合・締め日）・振込チェック状態・履歴を、
@@ -555,7 +568,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="set-default-tab">
       <h2>🏠 起動時に開くタブ</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">アプリを開いたときに最初に表示するタブを選べます（この端末だけの設定です）。</p>
       <select id="defaultTabSelect" onchange="saveDefaultTab(this.value)" style="width:100%;padding:10px 14px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.95rem;outline:none;background:white;font-weight:600;color:#555;">
@@ -564,26 +577,34 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
         <option value="annual">📅 年間計画</option>
         <option value="history">📅 履歴</option>
         <option value="settings">⚙️ 設定</option>
-
       </select>
     </div>
-    <div class="card">
+
+    <div class="card" id="set-tab-order">
       <h2>📑 タブの並び替え</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">この端末だけの表示順です。</p>
       <div class="order-list" id="tabOrderList"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="set-set-order">
+      <h2>⚙️ 設定画面のカード並び替え</h2>
+      <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">「⚙️ 設定」タブ内の各カードの表示順を変更できます（この端末だけの設定です）。</p>
+      <div class="order-list" id="setOrderList"></div>
+    </div>
+
+    <div class="card" id="set-inp-order">
       <h2>📋 入力画面のカード並び替え</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">「📋 入力」タブ内のカードの表示順を変更できます（この端末だけの設定です）。</p>
       <div class="order-list" id="inpOrderList"></div>
     </div>
-    <div class="card">
+
+    <div class="card" id="set-res-order">
       <h2>📊 結果画面の並び替え</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">「📊 結果」タブ内の各セクションの表示順を変更できます（この端末だけの設定です）。</p>
       <div class="order-list" id="resOrderList"></div>
     </div>
-        <div class="card">
+
+    <div class="card" id="set-billing">
       <h2>📆 家計の締め日（起算日）</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">
         費用項目・サブスク・保険・貯蓄投資のうち「毎月払い」「年÷12」など日のみで入金期限を指定する項目について、
@@ -592,13 +613,12 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
         16未満の日付は「翌月扱い」になります（10日に設定すると翌月10日として扱われるため、16日より後の入金期限になります）。<br>
         月＋日を指定するボーナス・年一括払い・年払いサブスクの入金期限には影響しません。夫婦間で共有されます。
       </p>
-
       <select id="billingStartDaySelect" onchange="updateBillingStartDay(this.value)"
         style="width:100%;padding:10px 14px;border:2px solid #e0e0f0;border-radius:8px;font-size:0.95rem;outline:none;background:white;font-weight:600;color:#555;">
       </select>
     </div>
-    <div class="card">
-          <div class="card">
+
+    <div class="card" id="set-settled">
       <h2>✅ 支払い済みの年一括・複数年払いの記録</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">
         🌻夏ボーナス・⛄冬ボーナス・📆年一括払い（2年・3年ごとの一括払いを含む）の項目は、「夫済」「妻済」にチェックを入れると、
@@ -609,9 +629,7 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       <div class="master-list" id="settledItemsList"></div>
     </div>
 
-      <h2>⚖️ カスタム負担割合マスタ</h2>
-
-    <div class="card">
+    <div class="card" id="set-ratios">
       <h2>⚖️ カスタム負担割合マスタ</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:8px;">「夫の割合:妻の割合」の形式で登録します（例: 60:40 → 夫60% : 妻40%）。合計が100になるように入力してください。↑↓で表示順を変更できます。夫婦間で共有されます。</p>
       <div class="master-add-row">
@@ -620,32 +638,37 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
       </div>
       <div class="master-list" id="masterRatioList"></div>
     </div>
-    <div class="card">
+
+    <div class="card" id="set-accounts">
       <h2>🏦 口座名マスタ</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:8px;">↑↓で表示順を変更できます。夫婦間で共有されます。</p>
       <div class="master-add-row"><input type="text" id="newAccountName" placeholder="例: 楽天銀行 家計用" onkeydown="if(event.key==='Enter')addMasterItem('accounts','newAccountName')"/><button onclick="addMasterItem('accounts','newAccountName')">＋ 追加</button></div>
       <div class="master-list" id="masterAccountList"></div>
     </div>
-    <div class="card">
+
+    <div class="card" id="set-ins-types">
       <h2>🛡️ 保険種別マスタ</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:8px;">↑↓で表示順を変更できます。夫婦間で共有されます。</p>
       <div class="master-add-row"><input type="text" id="newInsType" placeholder="例: 就業不能保険" onkeydown="if(event.key==='Enter')addMasterItem('insTypes','newInsType')"/><button onclick="addMasterItem('insTypes','newInsType')">＋ 追加</button></div>
       <div class="master-list" id="masterInsTypeList"></div>
     </div>
-    <div class="card">
+
+    <div class="card" id="set-ins-companies">
       <h2>🏢 保険会社マスタ</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:8px;">↑↓で表示順を変更できます。夫婦間で共有されます。</p>
       <div class="master-add-row"><input type="text" id="newInsCompany" placeholder="例: ××海上" onkeydown="if(event.key==='Enter')addMasterItem('insCompanies','newInsCompany')"/><button onclick="addMasterItem('insCompanies','newInsCompany')">＋ 追加</button></div>
       <div class="master-list" id="masterInsCompanyList"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="set-changelog">
       <h2>📝 アプリ更新履歴</h2>
       <p style="font-size:0.82rem;color:#888;margin-bottom:14px;">これまでの機能追加・バグ修正の記録です。新しい修正ほど上に表示されます。</p>
       <div id="changelogList" style="max-height:300px; overflow-y:auto; padding-right:8px;"></div>
     </div>
+
+    </div><!-- settingsAreaを閉じる -->
   </div>
-</div>
+
 
 
 
@@ -676,9 +699,11 @@ h1 { text-align:center; color:white; font-size:1.8rem; margin-bottom:8px; text-s
 // ★アプリの現在のバージョン。コードを修正するたびに、この1行の日付・連番を更新してください。
 // 画面とコンソールに表示することで「今見ている画面が本当に最新のコードか」を
 // キャッシュ切り分けの第一手段として確認できるようにする。
-const APP_VERSION = 'v2026.09.13-6';
+const APP_VERSION = 'v2026.09.13-8';
 
 const APP_CHANGELOG = [
+  { v:'v2026.09.13-8', date:'2026-09-13', note:'振込サマリの夫/妻ラベル・期間ラベルのpositon:stickyがタブバーの裏に隠れる不具合を修正。以前「📅年間計画」タブ新設時に懸念していた「タブ5個化によるタブバーの2行折り返し」が実際に発生し、固定値だったtop:50px/96pxが不足していたことが原因。JavaScriptでタブバーの実際の高さを測定してCSS変数(--tab-bar-height)に反映し、sticky位置をcalc()で動的に算出する方式に変更。画面幅やタブ数が今後変わっても再発しない構造にした' },
+  { v:'v2026.09.13-7', date:'2026-09-13', note:'「🔗同期状態・共有」カードを入力タブから設定タブへ移動（id: inp-sync→set-sync）。設定タブ内の全カードを並び替え可能にする機能を新設（SET_DEFS・setOrder・kakeiboSetOrderV2をINP_DEFS等と同じ仕組みで追加し、既存4関数[loadOrders/applyOrders/moveOrder/renderOrderSettings]を拡張）。設定タブに以前から残っていたHTMLの構造不整合（孤立したdivとh2）も合わせて修正' },
   { v:'v2026.09.13-6', date:'2026-09-13', note:'年間計画の印刷専用ウィンドウに、元のアプリ画面へ戻るための「✕ 閉じる」ボタン（固定ヘッダーバー）を追加。window.close()が機能しない場合の手動操作案内（フェイルセーフ）も表示するようにした。既存の印刷ボタンは「もう一度、印刷ダイアログを開く」ための補助ボタンとしてデザインを調整' },
   { v:'v2026.09.13-5', date:'2026-09-13', note:'年間計画PDF印刷を根本的に方式変更。同一ページ内でbodyにクラスを付与し@media printで切り替える方式は、待機時間の延長・afterprintイベント化という2回の改善を経ても症状が全く変わらなかった（プレビュー1ページ目に結果タブの内容が写ったままだった）ことから、タイミングの問題ではなく設計自体が信頼できないと判断。window.open()で完全に独立した印刷専用ウィンドウを新規生成し、そちらの中だけで印刷する方式に切り替えた。ユーザージェスチャー起因の同期呼び出しによりiOS Safariのポップアップブロックを回避。従来のbody.print-annual-mode関連のCSS・printArea生成コードは不要になったため削除した' },
   { v:'v2026.09.13-4', date:'2026-09-13', note:'年間計画PDF印刷を再修正。.containerを隠す方式自体はCSSの正しい挙動だが、印刷プレビュー生成に1秒以上かかる環境（特にスマホ・タブレット）において、setTimeoutで固定1秒後に強制的にprint-annual-modeを解除してしまい、プレビュー完成前に通常画面へ戻ってしまっていた可能性を修正。afterprintイベントで解除するよう変更し、フォールバックのタイマーも10秒に延長。通常印刷ルールにもbody:not(.print-annual-mode)を明示し、意図を明確にする防御的リファクタリングも実施。デバッグ用のconsole.logを追加' },
@@ -771,15 +796,14 @@ const TAB_DEFS=[
   {id:'history', label:'📅 履歴'},
   {id:'settings',label:'⚙️ 設定'},
 ];
-
 const INP_DEFS=[
   {id:'inp-income',label:'👫 夫婦の月収入力'},
-  {id:'inp-sync',  label:'🔗 同期状態・共有'},
   {id:'inp-sub',   label:'📱 サブスクリプション管理'},
   {id:'inp-ins',   label:'🛡️ 保険管理'},
   {id:'inp-sav',   label:'💰 貯蓄・投資管理'},
   {id:'inp-exp',   label:'📋 費用項目'},
 ];
+
 const RES_DEFS=[
   {id:'res-charts', label:'📊 グラフ（比率・項目別）'},
   {id:'res-summary',label:'👫 夫婦の最終月間負担'},
@@ -792,26 +816,67 @@ const RES_DEFS=[
   {id:'res-bonus',  label:'🌻⛄📆 ボーナス・年一括払い'},
 ];
 
+const SET_DEFS=[
+  {id:'set-sync',         label:'🔗 同期状態・共有'},
+  {id:'set-backup',       label:'💾 データのバックアップと復元'},
+  {id:'set-default-tab',  label:'🏠 起動時に開くタブ'},
+  {id:'set-tab-order',    label:'📑 タブの並び替え'},
+  {id:'set-set-order',    label:'⚙️ 設定画面のカード並び替え'},
+  {id:'set-inp-order',    label:'📋 入力画面のカード並び替え'},
+  {id:'set-res-order',    label:'📊 結果画面の並び替え'},
+  {id:'set-billing',      label:'📆 家計の締め日（起算日）'},
+  {id:'set-settled',      label:'✅ 支払い済みの年一括・複数年払いの記録'},
+  {id:'set-ratios',       label:'⚖️ カスタム負担割合マスタ'},
+  {id:'set-accounts',     label:'🏦 口座名マスタ'},
+  {id:'set-ins-types',    label:'🛡️ 保険種別マスタ'},
+  {id:'set-ins-companies',label:'🏢 保険会社マスタ'},
+  {id:'set-changelog',    label:'📝 アプリ更新履歴'},
+];
+
 
 let tabOrder=TAB_DEFS.map(d=>d.id);
 let inpOrder=INP_DEFS.map(d=>d.id);
 let resOrder=RES_DEFS.map(d=>d.id);
+let setOrder=SET_DEFS.map(d=>d.id); // ★追加：設定タブのカード並び順
+
 
 function loadOrders(){
   try{const t=JSON.parse(localStorage.getItem('kakeiboTabOrderV2'));if(Array.isArray(t)&&t.length===TAB_DEFS.length)tabOrder=t;}catch(e){}
   try{const i=JSON.parse(localStorage.getItem('kakeiboInpOrderV2'));if(Array.isArray(i)&&i.length===INP_DEFS.length)inpOrder=i;}catch(e){}
   try{const r=JSON.parse(localStorage.getItem('kakeiboResOrderV2'));if(Array.isArray(r)&&r.length===RES_DEFS.length)resOrder=r;}catch(e){}
+  try{const s=JSON.parse(localStorage.getItem('kakeiboSetOrderV2'));if(Array.isArray(s)&&s.length===SET_DEFS.length)setOrder=s;}catch(e){} // ★追加
 }
 function applyOrders(){
   tabOrder.forEach((id,idx)=>{const b=document.getElementById('tabBtn-'+id);if(b)b.style.order=idx;});
   inpOrder.forEach((id,idx)=>{const el=document.getElementById(id);if(el)el.style.order=idx;});
   resOrder.forEach((id,idx)=>{const el=document.getElementById(id);if(el)el.style.order=idx;});
+  setOrder.forEach((id,idx)=>{const el=document.getElementById(id);if(el)el.style.order=idx;}); // ★追加
 }
+
+// ★追加：タブバーの実際の高さを測定し、CSS変数(--tab-bar-height)に反映する。
+// タブの数や画面幅によってタブバーが1行/2行のどちらに折り返されても、
+// 振込サマリのsticky見出し（.transfer-person-title・.transfer-period-title）が
+// 常にタブバーのすぐ下に正しく固定されるようにする。
+function updateStickyOffsets(){
+  const tabBar = document.getElementById('tabBar');
+  if(!tabBar) return;
+  const h = tabBar.offsetHeight;
+  document.documentElement.style.setProperty('--tab-bar-height', h + 'px');
+}
+// 画面回転・ウィンドウサイズ変更のたびに何度も再計算が走らないよう、少し待ってから実行する
+let stickyOffsetTimer = null;
+function scheduleStickyOffsetUpdate(){
+  clearTimeout(stickyOffsetTimer);
+  stickyOffsetTimer = setTimeout(updateStickyOffsets, 150);
+}
+
+
 function moveOrder(kind,idx,dir){
-  const arr=kind==='tab'?tabOrder:kind==='inp'?inpOrder:resOrder;
+  // ★修正：'set'種別を追加
+  const arr = kind==='tab' ? tabOrder : kind==='inp' ? inpOrder : kind==='res' ? resOrder : setOrder;
   const ni=idx+dir;if(ni<0||ni>=arr.length)return;
   [arr[idx],arr[ni]]=[arr[ni],arr[idx]];
-  const key=kind==='tab'?'kakeiboTabOrderV2':kind==='inp'?'kakeiboInpOrderV2':'kakeiboResOrderV2';
+  const key = kind==='tab' ? 'kakeiboTabOrderV2' : kind==='inp' ? 'kakeiboInpOrderV2' : kind==='res' ? 'kakeiboResOrderV2' : 'kakeiboSetOrderV2';
   localStorage.setItem(key,JSON.stringify(arr));
   applyOrders();renderOrderSettings();
 }
@@ -828,7 +893,9 @@ function renderOrderSettings(){
   render('tabOrderList',tabOrder,TAB_DEFS,'tab');
   render('inpOrderList',inpOrder,INP_DEFS,'inp');
   render('resOrderList',resOrder,RES_DEFS,'res');
+  render('setOrderList',setOrder,SET_DEFS,'set'); // ★追加
 }
+
 
 function switchTab(tabId){
   TAB_DEFS.forEach(d=>{
@@ -3594,6 +3661,9 @@ function saveDefaultTab(tabId){
 async function init(){
   loadOrders();
   applyOrders();
+  updateStickyOffsets(); // ★追加：タブバーの実際の高さを測定し、sticky位置に反映する
+  window.addEventListener('resize', scheduleStickyOffsetUpdate); // ★追加：画面回転・リサイズにも追従させる
+
 
   // ★追加：画面とコンソールの両方にアプリのバージョンを表示する。
   // ブラウザやGitHub Pages側のキャッシュが原因で「修正が反映されていない」
